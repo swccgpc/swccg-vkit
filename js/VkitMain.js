@@ -84,7 +84,7 @@ function updateMatchingCards() {
 
 
     matchingCards.length = 0;
-    for (i = 0; i < allCardNames.length; i++){
+    for (i = 0; i < allCardNames.length; i++) {
         var matches = false;
 
         var lowercaseFilterText = filterText.toLowerCase();
@@ -169,11 +169,11 @@ function removeSelectedCards() {
 }
 
 
-function convertImgToBase64(isWhiteBorder, url, callback)
-{
+function convertImgToBase64(isWhiteBorder, url, callback) {
   var canvas = document.createElement('canvas');
   var ctx = canvas.getContext('2d');
   img = document.createElement('img');
+  img.crossOrigin = "Anonymous";
   img.src = url;
   img.onload = function() {
     canvas.height = img.height;
@@ -198,7 +198,7 @@ function convertImgToBase64(isWhiteBorder, url, callback)
 
 }
 
-function sortCards(originalList, fullTemplates, halfSlips){
+function sortCards(originalList, fullTemplates, halfSlips) {
   for (var i = 0; i < originalList.length; i++) {
       var card = originalList[i];
       if (card.aspectRatio > 1) {
@@ -266,7 +266,7 @@ function printCards(doc, cardsToPrint, lastPrintPoint) {
           // Card will fit in this row on this page!  No adjustments needed.
       }
 
-      if (card.dataUrl !== null){
+      if (card.dataUrl !== null) {
           doc.addImage(card.dataUrl, 'jpeg', nextLeft, nextTop, CARD_WIDTH, calculatedHeight);
       }
 
@@ -334,7 +334,7 @@ function generatePdf() {
           var cardPath = allCardImages[cardName];
           console.log("image: " + cardPath );
 
-          var imgData = convertImgToBase64(isWhiteBorder, cardPath, function(dataUrl, aspectRatio){
+          var imgData = convertImgToBase64(isWhiteBorder, cardPath, function(dataUrl, aspectRatio) {
 
               cardsWithSizes.push( {
                 cardPath: cardPath,
@@ -351,17 +351,19 @@ function generatePdf() {
 }
 
 
-jQuery(document).ready(function(){
+var allCardNames  = [];
+var allCardImages = [];
 
-    console.log("After Loaded");
+jQuery(document).ready(function() {
 
-    console.log(JSON.stringify(allCardNames));
+  console.log("After Loaded");
 
-    popuplateSpacingFields();
-
-    updateMatchingCards();
-
-    // Remove the default wordpress entry-header on swccgpc
-    jQuery('.entry-header').css('display', 'none');
+    jQuery.getJSON('allCards.json', function(data) {
+      allCardNames  = data.allCardNames;
+      allCardImages = data.allCardImages;
+      console.log("allCardNames:", JSON.stringify(allCardNames));
+      popuplateSpacingFields();
+      updateMatchingCards();
+    }); // jQuery.getJSON('allCards.json', function(data)
 
 });

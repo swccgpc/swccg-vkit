@@ -1,0 +1,98 @@
+
+    .fl-post-header {
+      display: none;
+    }
+
+    .vkit-app {
+      color: black;
+    }
+
+    .vkit-app ::selection {
+      color: white;
+    }
+
+    .vkit-app h1,
+    .vkit-app h2,
+    .vkit-app h3 {
+      color: black;
+    }
+
+    .row-New:before,
+    .row-New:after {
+      content: ' ';
+      display: table;
+    }
+
+    .row-New:after {
+      clear: both;
+    }
+
+    .row-New {
+    }
+
+    .col-md-5-New {
+      position: relative;
+      min-height: 1px;
+      width: 41%;
+      float:left;
+    }
+
+    .col-md-12-New {
+      position: relative;
+      min-height: 1px;
+      width: 100%;
+      float:left;
+      padding-left: 1.4em;
+      padding-right: 1.4em;
+    }
+
+    .col-md-2-New {
+      position: relative;
+      min-height: 1px;
+      width: 16%;
+      float:left;
+      text-align: center;
+    }
+
+    .btn-New {
+      display: inline-block;
+      padding: 6px 12px;
+      margin-bottom: 0;
+      font-size: 14px;
+      font-weight: 400;
+      line-height: 1.42857143;
+      text-align: center;
+      white-space: nowrap;
+      vertical-align: middle;
+      -ms-touch-action: manipulation;
+      touch-action: manipulation;
+      cursor: pointer;
+      -webkit-user-select: none;
+      -moz-user-select: none;
+      -ms-user-select: none;
+      user-select: none;
+      background-image: none;
+      border: 1px solid transparent;
+      border-radius: 4px;
+    }
+
+    .btn-add-remove {
+      width: 85%;
+    }
+
+    .btn-info-New {
+      color: #fff;
+      background-color: #5bc0de;
+      border-color: #46b8da;
+    }
+
+    .btn-info-New:hover {
+      background-color: #5bc0de !important;
+    }
+
+    .btn-success-New {
+      color: #fff;
+      background-color: #5cb85c;
+      border-color: #4cae4c;
+    }
+    
