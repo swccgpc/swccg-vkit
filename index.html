@@ -1,11 +1,10 @@
 <!DOCTYPE html>
 <html lang="en-us">
 <head>
-  <title>vKit</title>
+  <title>VKIT</title>
   <meta charset='utf-8'>
   <link rel="stylesheet" href="/css/vkit.css" />
 
-  <!-- script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/1.1.135/jspdf.min.js"></script -->
   <script type="text/javascript" src="libs/jspdf/1.1.135/jspdf.min.js"></script>
   <script type="text/javascript" src="libs/jquery/1.12.4/jquery.js"></script>
   <script type="text/javascript" src="js/VkitMain.js"></script>
@@ -13,14 +12,72 @@
 
 </head>
 <body>
+    
+<div class="top-banner">
+    <div class="top-banner-item">
+        <p>
+            <a class="btn button top-banner-button" href="https://www.starwarsccg.org/volunteer">
+                Volunteer
+            </a>
+        </p>
+    </div>
+    
+    <div class="btn button top-banner-item">
+        <p>
+            <a class="btn button top-banner-button" href="https://scomp.starwarsccg.org/">
+                Scomp Link
+            </a>
+        </p>
+    </div>
+    
+    <div class="btn button top-banner-item">
+        <p>
+            <a class="btn button top-banner-button" href="https://forum.starwarsccg.org/">
+                Forums
+            </a>
+        </p>
+    </div>
+    
+    <div class="btn button top-banner-item">
+        <p>
+            <a class="btn button top-banner-button" href="https://gemp.starwarsccg.org/">
+                Gemp
+            </a>
+        </p>
+    </div>
+    
+    <div class="btn button top-banner-item">
+        <p>
+            <a class="btn button top-banner-button" href="https://vkit.starwarsccg.org/">
+                Vkit
+            </a>
+        </p>
+    </div>    
+</div>
+  
+<div class="vkit-header">
+    <div class="vkit-header-logo">
+        <img class="top-banner-image" 
+         src="https://res.starwarsccg.org/wp/wp-content/uploads/2019/04/logo.jpg"
+         href="https://www.starwarsccg.org/"> 
+    </div>
+    <div class="vkit-header-title">
+        VKIT
+    </div>
+</div>
+
+    
+<div class="below-logo-divider">
+</div>
+
 <div class='vkit-app'>
 
-    <h2 style='float:left; font-weight:bold; font-size:22px; margin-top: 0px; text-transform: none !important;'>Vkit: Print only the cards you need</h2>
-
+    <h2 class='vkit-headline'>Vkit: Print only the cards you need</h2>
+    
     <!-- Instructions and Spacing Options on the right side -->
-    <div class='row-New' style='width:100%'>
-      <div class='row-New' style='float:right; font-size: 1.2em; font-weight: bold'>
-        <div style='margin-left: 10px; float:right; text-decoration:underline; font-style:italic; cursor: pointer; color: rgb(255, 167, 74); font-weight: 300;font-size: 0.9em;' onclick='expandCollapseInstructions()'>+ Click For Instructions... </div>
+    <div style='width:100%'>
+      <div class="vkit-instructions-block">
+        <div class="vkit-link" onclick='expandCollapseInstructions()'>+ Click For Instructions... </div>
         <div style='clear:both'></div>
       </div>
     </div>
@@ -28,93 +85,125 @@
     <div style='clear:both'></div>
 
     <!-- Instructions (collapsble per above) -->
-    <div id='instructionsObj' style='border:thin solid #DADADA;margin:20px; position:relative; display:none'>
-        <div style='position:absolute; top: 10px; right: 10px; ; cursor: pointer'  onclick='expandCollapseInstructions()'>[Hide]</div>
-        <div style='margin:20px'>
-            <div> - The cards on the left are all of the cards available. </div>
-            <div> - The cards on the right are all of the cards you have selected to print. </div>
-            <div> - Type part of a card name into the 'filter' to limit the cards you see on the left.</div>
-            <div> - Select a card on the left and press 'Add >>' to add it to the list on the right. Likewise to remove a card </div>
-            <div> - Click 'Generate PDF' when you are ready. </div>
-            <div style='text-decoration:underline; font-weight:bold'>The PDF may take a little while to generate. When it is ready, Your download should start automatically</div>
+    <div id='instructionsObj' class="vkit-expand-dialog">
+        <div class="vkit-link" 
+            style='position:absolute; top: 10px; right: 10px;'  
+             onclick='expandCollapseInstructions()'>[Hide]</div>
+        <l style='margin:20px'>
+            <li> The cards on the left are all of the cards available. </li>
+            <li> The cards on the right are all of the cards you have selected to print. </li>
+            <li> Type part of a card name into the 'filter' to limit the cards you see on the left.</li>
+            <li> Select a card on the left and press 'Add (BB) >' to add it to the list on the right.</li>
+            <li> Select a card on the right an press "Remove" to remove it from your list. </li>
+            <li> Click "ADD (WB) >" to add a white-border version of the card.</li>
+            <li> Click 'Generate PDF' when you are ready.</li>
+            <div>
+                <p class="vkit-instructions-note">The PDF may take a little while to generate</p>
+                <p>When the PDF is ready, your download should start automatically</p>
+            </div>
+        </l>
+    </div>
+    
+    
+    <!-- Card Filter Row -->
+    <div class="vkit-content-flex">
+        
+        <!-- Left Column -->
+        <div class="vkit-column">
+            <label>Filter Cards:</label>
+            <input id='filterText' 
+                   type='text' 
+                   onkeypress='queueFilterChange()'     
+                   onchange='filterChanged()' 
+                   style='width:100%'>
+            
+            <div style='clear:both;height:15px;width:100%'></div>
+        </div>
+        <div class="vkit-button-column">
+        </div>
+        <div class="vkit-column">
         </div>
     </div>
-
-
-    <!-- Row: Labels -->
-    <div class='row-New' style='width:100%'>
-      <div class='col-md-5-New'>
-          <label>Filter Cards:</label>
-          <div style='clear:both'></div>
-          <input type='text' id='filterText' onkeypress='queueFilterChange()' onchange='filterChanged()' style='width:100%'>
-          <div style='clear:both;height:15px;width:100%'></div>
-      </div>
-    </div>
-
-
-    <!-- Row: Actual controls -->
-    <div class='row-New' style='height:100%; width:100%'>
-        <div class='col-md-5-New' style='height:100%'>
+    
+    
+    <!-- Main Content -->
+    <div class="vkit-content-flex">
+        
+        <!-- Left Column -->
+        <div class="vkit-column">
             <select multiple id='selectAdds' size=20 style='width:100%;'>
-              <!--<option ng-repeat='x in matchingCards' value='{{x}}'>{{x}}</option>-->
             </select>
         </div>
-
-        <!-- Middle Pane:  Add/Remove buttons -->
-        <div class='col-md-2-New'>
-            <div>
-                <button class='btn-New btn-info-New btn-block btn-add-remove' onclick='addSelectedCards(false)'>Add (BB) &gt; </button>
-                <div style='height:10px'></div>
-                <button class='btn-New btn-info-New btn-block btn-add-remove' onclick='addSelectedCards(true)'>Add (WB) &gt; </button>
-                <div style='height:10px'></div>
-                <button class='btn-New btn-info-New btn-block btn-add-remove' onclick='removeSelectedCards()'> &lt; Remove</button>
+    
+        <!-- Middle Column -->
+        <div class="vkit-button-column">
+            <div class="vkit-middle-button-holder">
+                <button class='btn vkit-button' onclick='addSelectedCards(false)'>Add (BB) &gt; </button>
+                <div class="vkit-small-spacer"></div>
+                <button class='vkit-button' onclick='addSelectedCards(true)'>Add (WB) &gt; </button>
+                <div class="vkit-small-spacer"></div>
+                <button class='vkit-button' onclick='removeSelectedCards()'> &lt; Remove</button>
             </div>
-            <!--<select multiple id='selectAdds' size=20 style='width:1px; visibility:hidden'></select>-->
-
         </div>
-        <div style='clear:right'></div>
-
-        <!-- Right Pane:  Added Cards -->
-        <div class='col-md-5-New'>
+        
+        
+        <!-- Right Column -->
+        <div class="vkit-column">
             <select multiple id='selectedRemoves' size=20 style='width:100%;height:100%'>
-              <!--<option ng-repeat='x in cardsForPdf track by $index' value='{{x}}'>{{x}}</option>-->
             </select>
         </div>
     </div>
 
 
     <!-- Print Options (collapsble per above) -->
-    <div id='printOptionsObj' style='border:thin solid #DADADA; margin-top:20px; margin-bottom:20px; position:relative; display:none'>
-      <div style='position:absolute; top: 10px; right: 10px; ; cursor: pointer'  onclick='expandCollapseSpacingOptions()'>[Hide]</div>
-      <div style='margin:20px'>
-          <label>Horizontal Spacing</label>
-          <input id='inputHorizontalSpacing' type='text'>
-
-          <label>Vertical Spacing</label>
-          <input id='inputVerticalSpacing' type='text'>
+    <div id='printOptionsObj' class="vkit-expand-dialog">
+      <div class="vkit-link" style='position:absolute; top: 10px; right: 10px;'
+           onclick='expandCollapseSpacingOptions()'>[Hide]</div>
+        
+      <div class="vkit-spacing-headline">
+          These options allow you to add extra spacing between the cards on the printout.
+      </div>
+      <div class="vkit-expand-window-flex">
+          
+          <div class="vkit-expand-window-flex-content">
+              <label class="vkit-label">Horizontal Spacing</label>
+              <input id='inputHorizontalSpacing' type='text'>
+          </div>
+          
+          <div class="vkit-expand-window-flex-content">
+              <label class="vkit-label">Vertical Spacing</label>
+              <input id='inputVerticalSpacing' type='text'>
+          </div>
       </div>
     </div>
 
 
     <!-- Printing Progress -->
-    <div id='printProgressObj' style='background-color: #DADADA; border:thin solid #DADADA;margin:20px; position:fixed; top: 40%; left: 100px; right: 100px; margin: auto; display:none'>
+    <div id='printProgressObj'>
         <div style='margin:20px'>
             <div style='font-size: 1.2em;'> PDF Generation In Progress</div>
             <div id='progressText'> </div>
             </div>
     </div>
 
-    <!-- Row: Bottom Buttons -->
-    <div class='row-New' style='width:100%'>
-      <div class='col-md-12-New'>
-          <div style='width:100%;height:10px'></div>
-          <button class='btn-New btn-success-New' style='margin-left: 15px; float:right' onclick='generatePdf()'>Generate PDF</button>
-          <div style='float:right; text-decoration:underline; font-style:italic; cursor: pointer' onclick='expandCollapseSpacingOptions()'>Spacing Options... </div>
+    <!-- Bottom Buttons -->
+    <div class='vkit-generate-section'>
+      <div class="vkit-spacer"></div>
+      <button class='vkit-button vkit-generate-button' 
+              style='margin-left: 15px; float:right' 
+              onclick='generatePdf()'>
+          Generate PDF
+        </button>
+      <div class="vkit-link vkit-spacing-options-link" 
+           onclick='expandCollapseSpacingOptions()'>
+          Spacing Options... 
       </div>
     </div>
 
 
-    <div style='color: red; font-style:italic'>For issues or requests, please post in the forums.</div>
+    <div class="vkit-post-forum-note">
+        For issues or requests, please post in the forums.
+    </div>
 
 </div>
 
