@@ -20,6 +20,7 @@ async function allBucketKeys(s3, bucket, prefix) {
       //allCards.allCardNames = allCardNames.concat(key);
       allCards.allCardNames.push(key);
       allCards.allCardImages[key] = 'https://res.starwarsccg.org/vkit/cards/standard/'+key+'/image.png';
+      allCards.allCardImages[key + " (WB)"] = 'https://res.starwarsccg.org/vkit/cards/standard/'+key+'/image.png';
       console.log(key);
     });
 
