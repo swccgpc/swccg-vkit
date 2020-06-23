@@ -1,10 +1,18 @@
-vkit
+VKIT
 =========
+Welcome to VKIT for Star Wars CCG! This tool lets you print out all of the "Virtual Cards" for the game.
 
-Allows the production of a PDF with printable cards
+For more information about Star Wars CCG, check out the SWCCG Players Committee website here: https://www.starwarsccg.org/
 
-* Contributors: Tom Marlin
-* Website: https://github.com/swccgpc/swccg-vkit
+* Website: https://www.starwarsccg.org/vkit/
+
+
+## Where Can I Ask Questions?
+The best place to ask questions about this project is on the Star Wars CCG Players Committee Forums. Specifically, the "Resources" Sub-Form: https://forum.starwarsccg.org/viewforum.php?f=188
+
+
+## Where are the Images?
+The images are currently all stored in Amazon S3 here: https://res.starwarsccg.org/vkit/cards/standard.  The list of all of the images are in "allCards.json".  Don't worry, you don't need to update tha file manually.  Once we add new cards to that "cards/standard" folder, we simply need to re-generate that JSON file automatically. See instructions below
 
 
 ## Generating the json file
@@ -29,3 +37,19 @@ node create_json.js
 * Once @DevoKun or @thomasmarlin approve and merge the pull request the GitHub action will automatically deploy the latest code version.
 
 
+## How To Contribute?
+If you see bugs in the current data, please contribute!
+
+Here's a brief overview of what you will need to do:
+1. Create a Fork of the code
+2. Create a new branch inside your fok
+3. Commit your changes in that branch
+4. Create a pull request (PR)
+5. Someone on the team will review your PR and get it merged?
+
+There is a nice tutorial here:
+https://www.thinkful.com/learn/github-pull-request-tutorial/Time-to-Submit-Your-First-PR#Time-to-Submit-Your-First-PR
+
+
+## Attribution
+This code is a fork of the original here: https://github.com/thomasmarlin/vkit
