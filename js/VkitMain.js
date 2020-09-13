@@ -186,7 +186,7 @@ function convertImgToBase64(isWhiteBorder, url, callback) {
         convertCanvasToWhiteBorder2(canvas);
     }
 
-    var dataURL = canvas.toDataURL('image/jpeg');
+    var dataURL = canvas.toDataURL('image/png');
     var aspectRatio = canvas.height / canvas.width;
     callback(dataURL, aspectRatio);
     canvas = null;
