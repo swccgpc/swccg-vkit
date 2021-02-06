@@ -18,6 +18,7 @@ cloudfront_invalidate_root: true
 exclude_from_upload:
   - '.git'
   - '.github'
+  - '.gitignore'
   - 'node_modules'
   - '.git/*'
   - '.github/*'
