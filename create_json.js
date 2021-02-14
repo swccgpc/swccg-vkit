@@ -36,7 +36,7 @@ async function allBucketKeys(s3, bucket, prefix) {
 async function main() {
   var allCards = await allBucketKeys(s3, 'res.starwarsccg.org', 'vkit/cards/standard/');
   console.log("final allCardNames:", allCards);
-  var allCardsJson = JSON.stringify(allCards);
+  var allCardsJson = JSON.stringify(allCards, null, 2);
   var fs = require('fs');
   fs.writeFile('allCards.json', allCardsJson, 'utf8', function (err, data){
     if (err) { console.log(err); }
