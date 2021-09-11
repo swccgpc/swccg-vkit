@@ -12,7 +12,9 @@ The best place to ask questions about this project is on the Star Wars CCG Playe
 
 
 ## Where are the Images?
-The images are currently all stored in Amazon S3 here: https://res.starwarsccg.org/vkit/cards/standard.  The list of all of the images are in "allCards.json".  Don't worry, you don't need to update tha file manually.  Once we add new cards to that "cards/standard" folder, we simply need to re-generate that JSON file automatically. See instructions below
+* The source of truth for all images is in the [swccg-vkit-images](https://github.com/swccgpc/swccg-vkit-images) git repo.
+* Images are uploaded by a GitHub action to the `res.starwarsccg.org` S3 Bucket.
+* `allCards.json` is generated from a listing of the images stored in the `res.starwarsccg.org` S3 Bucket.
 
 
 ## Generating the json file
