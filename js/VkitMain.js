@@ -169,10 +169,8 @@ function removeSelectedCards() {
 }
 
 
-function convertImgToBase64(isWhiteBorder, url, callback) {
-  var canvas = document.createElement('canvas');
-  var ctx = canvas.getContext('2d');
-  img = document.createElement('img');
+function convertImgToBase64(isWhiteBorder, url, canvas, img, callback) {
+
   img.crossOrigin = "Anonymous";
   img.src = url;
   img.onload = function() {
@@ -189,7 +187,6 @@ function convertImgToBase64(isWhiteBorder, url, callback) {
     var dataURL = canvas.toDataURL('image/png');
     var aspectRatio = canvas.height / canvas.width;
     callback(dataURL, aspectRatio);
-    canvas = null;
   };
   img.onerror = function() {
       console.log("Failed ot open image: " + url);
@@ -290,11 +287,14 @@ function generatePdf() {
       return;
     }
 
+    var canvas = document.createElement('canvas');
+    var img = document.createElement('img');
+
     showPrintProgress();
 
     console.log("Spacing options are at: " + spacingOptions.horizontalSpacingInches  + " V: " + spacingOptions.verticalSpacingInches);
 
-    var doc = new jsPDF('portrait', 'in', [11, 8.5]);
+    var doc = new jspdf.jsPDF('portrait', 'in', [11, 8.5]);
 
     var cardsWithSizes = [];
 
@@ -311,9 +311,6 @@ function generatePdf() {
           var fullTemplates = [];
           sortCards(cardsWithSizes, fullTemplates, halfSlips);
 
-          var cardsInCurrentRow = 0;
-          var rowsPrinted = 0;
-
           var lastPrintPoint = {
               left: MARGIN_LEFT,
               top: MARGIN_TOP,
@@ -327,6 +324,9 @@ function generatePdf() {
 
           hidePrintProgress();
 
+          img = null;
+          canvas = null;
+
         } else {
 
           var cardName = cardsForPdf[currentCardIndex];
@@ -334,7 +334,8 @@ function generatePdf() {
           var cardPath = allCardImages[cardName];
           console.log("image: " + cardPath );
 
-          var imgData = convertImgToBase64(isWhiteBorder, cardPath, function(dataUrl, aspectRatio) {
+          // Async function to keep adding new cards until finished
+          convertImgToBase64(isWhiteBorder, cardPath, canvas, img, function(dataUrl, aspectRatio) {
 
               cardsWithSizes.push( {
                 cardPath: cardPath,
