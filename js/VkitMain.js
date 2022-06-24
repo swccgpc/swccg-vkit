@@ -142,17 +142,21 @@ function addSelectedCards(isWhiteBorder) {
           cardsForPdf.push(cardToAdd);
       }
 
-      jQuery('#selectedRemoves').find('option')
-        .remove();
-
-      for (var i = 0; i < cardsForPdf.length; i++) {
-          var match = cardsForPdf[i];
-          console.log("Add card: " + match);
-          jQuery('#selectedRemoves').append('<option value="' + match + '">' + match + '</option>');
-      }
+      redrawSelectedCards();
 
   });
 
+}
+
+function redrawSelectedCards() {
+  jQuery('#selectedRemoves').find('option')
+        .remove();
+
+  for (var i = 0; i < cardsForPdf.length; i++) {
+      var match = cardsForPdf[i];
+      console.log("Add card: " + match);
+      jQuery('#selectedRemoves').append('<option value="' + match + '">' + match + '</option>');
+  }
 }
 
 function removeSelectedCards() {
@@ -349,6 +353,151 @@ function generatePdf() {
     }
 
     addNextCard(0);
+}
+
+
+/*
+ * File Uploading
+ */
+function loadEventFromFile() {
+  var input, file, fr;
+
+  if (typeof window.FileReader !== 'function') {
+    alert("The file API isn't supported on this browser yet.");
+    return;
+  }
+
+  input = jQuery('#fileinput').get(0);
+  input.onchange = function() {
+    if (!input) {
+      alert("Um, couldn't find the fileinput element.");
+    }
+    else if (!input.files) {
+      alert("This browser doesn't seem to support the `files` property of file inputs.");
+    }
+    else if (!input.files[0]) {
+      alert("Please select a file before clicking 'Load'");
+    }
+    else {
+      file = input.files[0];
+      fr = new FileReader();
+      fr.onload = receivedText;
+      fr.readAsText(file);
+    }
+
+    function receivedText(e) {
+      var lines = e.target.result;
+      loadCards(lines);
+      input.onchange = function() {};
+      jQuery(input).val(null);
+    }
+  }
+  input.click();
+}
+
+function loadCards(fileContents) {
+  if (fileContents.indexOf("<?xml ") != -1) {
+    loadCardFromGempExport(fileContents);
+  } else {
+    alert("Gemp plaintext lists not supported yet. Please use GEMP Deck Export files for now")
+  }
+}
+
+function loadCardFromGempExport(fileContents) {
+
+  var includeShields = confirm("Include shields and other cards from outside of deck?");
+
+  // Kill all lines which start with "<cardOutsideDeck"
+  if (!includeShields) {
+    fileContents = fileContents.replace(/cardOutsideDeck.*>/g, '');
+  }
+
+  const regexp = /title="([a-zA-Z 0-9,.:]*)"/g;
+
+  const matches = [...fileContents.matchAll(regexp)];
+  const cardNames = matches.map(match => match[1]);
+
+  addCardsByNames(cardNames);
+}
+
+function addCardsByNames(cardNames) {
+
+  const strippedCardNames = cardNames.map(cardName => cardName.replace(/[^a-zA-Z0-9]/g, ''));
+  var strippedActualCards = allCardNames.map(actualCard => actualCard.replace(/[^a-zA-Z0-9]/g, ''));
+
+  // Try to find all the stripped cards in the list of normal cards
+  strippedCardNames.forEach(card => {
+
+    var bestMatchIndex = -1;
+    var bestMatchSimilarity = 0.5;
+
+    for (var i = 0; i < strippedActualCards.length; i++) {
+      var matchPercent = similarity(card, strippedActualCards[i]);
+      if (matchPercent > bestMatchSimilarity) {
+        bestMatchIndex = i;
+        bestMatchSimilarity = matchPercent;
+      }
+    }
+
+    if (bestMatchIndex != -1 && bestMatchSimilarity > 0.8) {
+      cardsForPdf.push(allCardNames[bestMatchIndex]);
+    }
+
+  });
+
+  redrawSelectedCards();
+}
+
+function stripTitleToBasics(cardName) {
+  var strippedName = cardName.replace(/[^a-zA-Z0-9]/g, '');
+  return strippedName;
+}
+
+
+/*
+ *  Calculation of Levenshtein Distance:
+ * https://en.wikipedia.org/wiki/Levenshtein_distance
+ */
+
+function similarity(s1, s2) {
+  var longer = s1;
+  var shorter = s2;
+  if (s1.length < s2.length) {
+    longer = s2;
+    shorter = s1;
+  }
+  var longerLength = longer.length;
+  if (longerLength == 0) {
+    return 1.0;
+  }
+  return (longerLength - editDistance(longer, shorter)) / parseFloat(longerLength);
+}
+
+function editDistance(s1, s2) {
+  s1 = s1.toLowerCase();
+  s2 = s2.toLowerCase();
+
+  var costs = new Array();
+  for (var i = 0; i <= s1.length; i++) {
+    var lastValue = i;
+    for (var j = 0; j <= s2.length; j++) {
+      if (i == 0)
+        costs[j] = j;
+      else {
+        if (j > 0) {
+          var newValue = costs[j - 1];
+          if (s1.charAt(i - 1) != s2.charAt(j - 1))
+            newValue = Math.min(Math.min(newValue, lastValue),
+              costs[j]) + 1;
+          costs[j - 1] = lastValue;
+          lastValue = newValue;
+        }
+      }
+    }
+    if (i > 0)
+      costs[s2.length] = lastValue;
+  }
+  return costs[s2.length];
 }
 
 

@@ -145,6 +145,8 @@
                 <button class='vkit-button' onclick='addSelectedCards(true)'>Add (WB) &gt; </button>
                 <div class="vkit-small-spacer"></div>
                 <button class='vkit-button' onclick='removeSelectedCards()'> &lt; Remove</button>
+                <div class="vkit-small-spacer"></div>
+                <button class='vkit-button' onclick="loadEventFromFile()">Load GEMP Deck</button>
             </div>
         </div>
         
@@ -205,6 +207,10 @@
 
     <div class="vkit-post-forum-note">
         For issues or requests, please post in the forums.
+    </div>
+
+    <div style="position:absolute; right:5px; bottom:5px">
+        <input style="display:none" type='file' id='fileinput'>
     </div>
 
 </div>
