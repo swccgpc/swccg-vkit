@@ -412,7 +412,7 @@ function loadCardFromGempExport(fileContents) {
     fileContents = fileContents.replace(/cardOutsideDeck.*>/g, '');
   }
 
-  const regexp = /title="([a-zA-Z 0-9,.:]*)"/g;
+  const regexp = /title="([a-zA-Z 0-9,.:'&\\\/\"\-]*)"/g;
 
   const matches = [...fileContents.matchAll(regexp)];
   const cardNames = matches.map(match => match[1]);
