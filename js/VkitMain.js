@@ -109,6 +109,11 @@ function updateMatchingCards() {
         jQuery('#selectAdds').append('<option value="' + match + '">' + match + '</option>');
     }
 
+    // Automatically select the first card in the search results
+    if (matchingCards.length > 0) {
+      jQuery('#selectAdds > option:eq(0)').prop('selected', true)
+    }
+
 }
 
 function queueFilterChange() {
@@ -129,21 +134,28 @@ function addSelectedCards(isWhiteBorder) {
           cardToAdd += " (WB)";
       }
 
-      var added = false;
+      var inserted = false;
       for (var j = 0; j < cardsForPdf.length; j++) {
           if (cardsForPdf[j] == cardToAdd) {
               cardsForPdf.splice(j, 0, cardToAdd);
-              added = true;
+              inserted = true;
               break;
           }
       }
 
-      if (!added) {
+      if (!inserted) {
           cardsForPdf.push(cardToAdd);
       }
 
       redrawSelectedCards();
 
+      // Selected the last card that we added
+      var indexToSelect = j;
+      if (!inserted) {
+        indexToSelect = cardsForPdf.length - 1;
+      }
+      jQuery('#selectedRemoves > option').eq(indexToSelect).prop('selected', true);
+      
   });
 
 }
@@ -353,6 +365,39 @@ function generatePdf() {
     }
 
     addNextCard(0);
+}
+
+setTimeout(setupKeyListener, 1000);
+
+function moveSelectionDown() {
+  // User hit the down arrow while in the input box. 
+  // Just shift focus to the "selected cards" field so the user can navigate
+  jQuery('#selectAdds').focus()
+}
+
+function setupKeyListener() {
+
+  jQuery(jQuery("#filterText").get()).keydown(function(evt){
+    if (evt.which === 40) {
+      // Down Key
+      moveSelectionDown();
+    }
+  });
+
+  jQuery(jQuery("body").get()).keydown(function(evt){
+    if (evt.which === 13) {
+      // Enter key pressed. Add the selected card
+      addSelectedCards(false);
+    }
+  });
+
+  jQuery(jQuery("#selectedRemoves").get()).keydown(function(evt){
+    if (evt.keyCode === 46 || evt.keyCode === 8) {
+      // Delete Key
+      removeSelectedCards();
+    }
+  });
+
 }
 
 

@@ -76,8 +76,8 @@
     position:relative;
 }
 
-.vkit-app ::selection {
-  color: white;
+.vkit-app input ::selection {
+    color: green !important;
 }
 
 .vkit-content-flex {
