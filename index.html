@@ -117,7 +117,8 @@
                    type='text' 
                    onkeypress='queueFilterChange()'     
                    onchange='filterChanged()' 
-                   style='width:100%'>
+                   style='width:100%'
+                   tabindex="1">
             
             <div style='clear:both;height:15px;width:100%'></div>
         </div>
@@ -129,11 +130,11 @@
     
     
     <!-- Main Content -->
-    <div class="vkit-content-flex">
+    <div class="vkit-content-flex" ng-keypress="onKeyEvent($event)">
         
         <!-- Left Column -->
         <div class="vkit-column">
-            <select multiple id='selectAdds' size=20 style='width:100%;'>
+            <select multiple id='selectAdds' size=20 style='width:100%;' tabindex="2">
             </select>
         </div>
     
@@ -153,7 +154,7 @@
         
         <!-- Right Column -->
         <div class="vkit-column">
-            <select multiple id='selectedRemoves' size=20 style='width:100%;height:100%'>
+            <select multiple id='selectedRemoves' size=20 style='width:100%;height:100%' tabindex="3">
             </select>
         </div>
     </div>
