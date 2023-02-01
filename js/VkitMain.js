@@ -16,8 +16,9 @@ var spacingOptions = {
 var matchingCards = [];
 var cardsForPdf = [];
 var printedCards = [];
+var includeUnderlyingCardList = false;
 
-console.log("Vkit Verison 1.2");
+console.log("Vkit Verison 1.3");
 
 function popuplateSpacingFields() {
   document.getElementById("inputHorizontalSpacing").value = spacingOptions.horizontalSpacing;
@@ -184,6 +185,10 @@ function removeSelectedCards() {
     });
 }
 
+function toggleUnderlyingCardList() {
+  includeUnderlyingCardList = jQuery('#includeUnderlyingCardListCheck').is(":checked")
+}
+
 
 function convertImgToBase64(isWhiteBorder, url, canvas, img, callback) {
 
@@ -224,10 +229,7 @@ function sortCards(originalList, fullTemplates, halfSlips) {
 }
 
 function isCardListEnabled() {
-  if (window.location.toString().includes && window.location.toString().includes("includeCardList")) {
-    return true;
-  }
-  return false;
+  return true;
 }
 
 function setPrintPoint(pointObj, top, left, bottom, right) {
@@ -374,7 +376,9 @@ function generatePdf() {
           };
           printCards(doc, fullTemplates, lastPrintPoint);
           printCards(doc, halfSlips, lastPrintPoint);
-          printCardNames(doc, underlyingCardNames, lastPrintPoint);
+          if (includeUnderlyingCardList) {
+            printCardNames(doc, underlyingCardNames, lastPrintPoint);
+          }
 
           doc.output('save', 'vkitPdf.pdf');
 
@@ -612,6 +616,8 @@ function loadUnderlyingCardData() {
       });
 
 
+      var strippedActualCards = allCardNames.map(actualCard => actualCard.replace(/[^a-zA-Z0-9]/g, ''));
+
       // Loop through all of the "underlyingCardFor" entries and build a mapping of
       // the virtual card names to the underlying cards
       allCards.forEach(function(card) {
@@ -619,8 +625,10 @@ function loadUnderlyingCardData() {
         if (card.underlyingCardFor && card.underlyingCardFor.length > 0) {
           card.underlyingCardFor.forEach(function(underlyingForName) {
             // Find the card with that underlying
-            var vcardName = stripTitleToBasics(underlyingForName);
-            cardToUnderlyingMap[vcardName] = card.front.title;
+            var jsonVCardName = stripTitleToBasics(underlyingForName);
+            var vkitCardName = getBestMatchForCard(jsonVCardName, strippedActualCards);
+            
+            cardToUnderlyingMap[vkitCardName] = card.front.title;
           });
         }
       });
@@ -629,6 +637,24 @@ function loadUnderlyingCardData() {
     
   });
 }
+
+function getBestMatchForCard(cardName, strippedActualCards) {
+  var bestMatchIndex = -1;
+  var bestMatchSimilarity = 0.5;
+
+  for (var i = 0; i < strippedActualCards.length; i++) {
+    var matchPercent = similarity(cardName, strippedActualCards[i]);
+    if (matchPercent > bestMatchSimilarity) {
+      bestMatchIndex = i;
+      bestMatchSimilarity = matchPercent;
+    }
+  }
+  if (bestMatchIndex >= 0 && bestMatchSimilarity > 0.8) {
+    return strippedActualCards[bestMatchIndex];
+  }
+  return null;
+}
+
 
 jQuery(document).ready(function() {
 
