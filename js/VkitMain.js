@@ -223,11 +223,49 @@ function sortCards(originalList, fullTemplates, halfSlips) {
   }
 }
 
+function isCardListEnabled() {
+  if (window.location.toString().includes && window.location.toString().includes("includeCardList")) {
+    return true;
+  }
+  return false;
+}
+
 function setPrintPoint(pointObj, top, left, bottom, right) {
   pointObj.top = top;
   pointObj.left = left;
   pointObj.bottom = bottom;
   pointObj.right = right;
+}
+
+var CARD_TEXT_HEIGHT = 0.25;
+var UNDERLYING_CARD_INDENT = 1.0;
+
+function printCardNames(doc, cardNames, lastPrintPoint) {
+
+  if (!isCardListEnabled()) {
+    return;
+  }
+
+  doc.addPage();
+  lastPrintPoint.top = 1;
+  doc.setFontSize(16);
+  doc.text("Underlying Card List:", 1, lastPrintPoint.top);
+  lastPrintPoint.top += CARD_TEXT_HEIGHT * 1.5;
+
+  doc.setFontSize(12);
+  var cardNumber = 0;
+  cardNames.forEach(function(cardName) {
+    cardNumber++;
+    
+    if (lastPrintPoint.top + CARD_TEXT_HEIGHT > MAX_PAGE_BOTTOM) {
+      doc.addPage();
+      lastPrintPoint.top = 0;
+    }
+
+    doc.text(cardName, UNDERLYING_CARD_INDENT, lastPrintPoint.top);
+    lastPrintPoint.top += CARD_TEXT_HEIGHT;
+  });
+  
 }
 
 function printCards(doc, cardsToPrint, lastPrintPoint) {
@@ -313,6 +351,7 @@ function generatePdf() {
     var doc = new jspdf.jsPDF('portrait', 'in', [11, 8.5]);
 
     var cardsWithSizes = [];
+    var underlyingCardNames = [];
 
     function addNextCard(currentCardIndex) {
 
@@ -335,6 +374,7 @@ function generatePdf() {
           };
           printCards(doc, fullTemplates, lastPrintPoint);
           printCards(doc, halfSlips, lastPrintPoint);
+          printCardNames(doc, underlyingCardNames, lastPrintPoint);
 
           doc.output('save', 'vkitPdf.pdf');
 
@@ -349,6 +389,11 @@ function generatePdf() {
           var isWhiteBorder = (-1 != cardName.indexOf(" (WB)"));
           var cardPath = allCardImages[cardName];
           console.log("image: " + cardPath );
+
+          var strippedCardName = stripTitleToBasics(cardName);
+          if (cardToUnderlyingMap[strippedCardName]) {
+            underlyingCardNames.push(cardToUnderlyingMap[strippedCardName]);
+          }
 
           // Async function to keep adding new cards until finished
           convertImgToBase64(isWhiteBorder, cardPath, canvas, img, function(dataUrl, aspectRatio) {
@@ -549,6 +594,42 @@ function editDistance(s1, s2) {
 var allCardNames  = [];
 var allCardImages = [];
 
+var allCards = [];
+var cardToUnderlyingMap = {}
+
+function loadUnderlyingCardData() {
+  // TODO:  Get the JSON files added into vkit so we can access these via a relative URL instead of hitting scomp
+  //jQuery.getJSON('Light.json', function(light) {
+  jQuery.getJSON('https://scomp.starwarsccg.org/Light.json', function(light) {
+    light.cards.forEach(function(card) {
+      allCards.push(card);
+    });
+
+    //jQuery.getJSON('Dark.json', function(dark) {
+    jQuery.getJSON('https://scomp.starwarsccg.org/Dark.json', function(dark) {
+      dark.cards.forEach(function(card) {
+        allCards.push(card);
+      });
+
+
+      // Loop through all of the "underlyingCardFor" entries and build a mapping of
+      // the virtual card names to the underlying cards
+      allCards.forEach(function(card) {
+
+        if (card.underlyingCardFor && card.underlyingCardFor.length > 0) {
+          card.underlyingCardFor.forEach(function(underlyingForName) {
+            // Find the card with that underlying
+            var vcardName = stripTitleToBasics(underlyingForName);
+            cardToUnderlyingMap[vcardName] = card.front.title;
+          });
+        }
+      });
+
+    });
+    
+  });
+}
+
 jQuery(document).ready(function() {
 
   console.log("After Loaded");
@@ -561,4 +642,8 @@ jQuery(document).ready(function() {
       updateMatchingCards();
     }); // jQuery.getJSON('allCards.json', function(data)
 
+
+    if (isCardListEnabled()) {
+      loadUnderlyingCardData()
+    }
 });
