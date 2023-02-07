@@ -624,6 +624,14 @@ function loadUnderlyingCardData() {
 
         if (card.underlyingCardFor && card.underlyingCardFor.length > 0) {
           card.underlyingCardFor.forEach(function(underlyingForName) {
+            // transitioning from a list of strings to a list of objects with a title field containing 
+            // the string - this will account for that difference in underlying data, can be removed
+            // once the json data is fully converted
+            if (underlyingForName.hasOwnProperty('title')) {
+              tmpUnderlyingName = underlyingForName.title;
+              underlyingForName = tmpUnderlyingName;
+            }
+
             // Find the card with that underlying
             var jsonVCardName = stripTitleToBasics(underlyingForName);
             var vkitCardName = getBestMatchForCard(jsonVCardName, strippedActualCards);
