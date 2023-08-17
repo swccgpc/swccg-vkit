@@ -13,8 +13,10 @@ var spacingOptions = {
   verticalSpacingInches: 0
 };
 
-var matchingCards = [];
-var cardsForPdf = [];
+var printableCards = []; // List of ALL full Card objects which can be printed
+var matchingCardNames = [];  // List of card NAMES matching the filter
+var cardsForPdf = []; // List of card NAMES which will go on the PDF
+
 var printedCards = [];
 var includeUnderlyingCardList = false;
 
@@ -77,6 +79,8 @@ function getFilterText() {
   return textObj.val();
 }
 
+
+// Handle a change in the Filter, re-generating a list of 'matchingCards'
 function updateMatchingCards() {
     var i = 0;
 
@@ -84,34 +88,46 @@ function updateMatchingCards() {
     console.log("Filter Change!: " + filterText);
 
 
-    matchingCards.length = 0;
-    for (i = 0; i < allCardNames.length; i++) {
+    matchingCardNames.length = 0;
+    for (i = 0; i < printableCards.length; i++) {
         var matches = false;
 
         var lowercaseFilterText = filterText.toLowerCase();
 
         if ("" === lowercaseFilterText) {
             matches = true;
-        } else if (-1 != allCardNames[i].toLowerCase().indexOf(lowercaseFilterText)) {
+        } else if (-1 != printableCards[i].fullName.toLowerCase().indexOf(lowercaseFilterText)) {
             matches = true;
         }
 
         if (matches) {
-            matchingCards.push(allCardNames[i]);
+            matchingCardNames.push(printableCards[i].fullName);
         }
     }
 
     jQuery('#selectAdds').find('option')
       .remove();
 
-    for (i = 0; i < matchingCards.length; i++) {
-        var match = matchingCards[i];
-        console.log("Add card: " + match);
-        jQuery('#selectAdds').append('<option value="' + match + '">' + match + '</option>');
+
+    // TODO:
+    // 1. Put Card IDs into the list instead of card names
+    // 2. Distinguish between Light and Dark sides of cards. EX: Sandcrawler (Dark) (Errata)
+    // 3. Add "(Errata)" label for erratas
+
+    // Ideas:
+    // 1. On load, iterate through all cards looking for Dups. If Dups found, then add Light/Dark
+    // 2. Include "(Errata)" in fullName (change to 'displayName')
+    // 3. The same place that we strip out " (WB)", also strip out (Dark), (Light), and (Errata)
+
+
+    for (i = 0; i < matchingCardNames.length; i++) {
+        var matchingName = matchingCardNames[i];
+        console.log("Add card: " + matchingName);
+        jQuery('#selectAdds').append('<option value="' + matchingName + '">' + matchingName + '</option>');
     }
 
     // Automatically select the first card in the search results
-    if (matchingCards.length > 0) {
+    if (matchingCardNames.length > 0) {
       jQuery('#selectAdds > option:eq(0)').prop('selected', true)
     }
 
@@ -242,6 +258,8 @@ function setPrintPoint(pointObj, top, left, bottom, right) {
 var CARD_TEXT_HEIGHT = 0.25;
 var UNDERLYING_CARD_INDENT = 1.0;
 
+
+// Add a list of underlying cards to the last page of the PDF
 function printCardNames(doc, cardNames, lastPrintPoint) {
 
   if (!isCardListEnabled()) {
@@ -270,6 +288,7 @@ function printCardNames(doc, cardNames, lastPrintPoint) {
   
 }
 
+// Given a list of card NAMEs, add those actual cards to the PDF
 function printCards(doc, cardsToPrint, lastPrintPoint) {
 
   for (var i = 0; i < cardsToPrint.length; i++) {
@@ -290,7 +309,6 @@ function printCards(doc, cardsToPrint, lastPrintPoint) {
           addedPageOrRow = true;
           nextTop = MARGIN_TOP;
           nextLeft = MARGIN_LEFT;
-          //setPrintPoint(lastPrintPoint, MARGIN_TOP, MARGIN_LEFT, MARGIN_TOP, MARGIN_LEFT);
       }
 
       // If this card will exceed the width, add a new row OR a new page if needed
@@ -391,29 +409,52 @@ function generatePdf() {
 
           var cardName = cardsForPdf[currentCardIndex];
           var isWhiteBorder = (-1 != cardName.indexOf(" (WB)"));
-          var cardPath = allCardImages[cardName];
-          console.log("image: " + cardPath );
 
-          var strippedCardName = stripTitleToBasics(cardName);
-          if (cardToUnderlyingMap[strippedCardName]) {
-            underlyingCardNames.push(cardToUnderlyingMap[strippedCardName]);
+          var cardPaths = [];
+          var actualCard = findCardWithName(cardName);
+          if (actualCard.front.printableSlipUrl) {
+            cardPaths.push(actualCard.front.printableSlipUrl);
+          }
+          if (actualCard.back && actualCard.back.printableSlipUrl) {
+            cardPaths.push(actualCard.back.printableSlipUrl);
           }
 
-          // Async function to keep adding new cards until finished
-          convertImgToBase64(isWhiteBorder, cardPath, canvas, img, function(dataUrl, aspectRatio) {
+          // Add all cards for this card
+          cardPaths.forEach(function(cardPath) {
+            console.log("image: " + cardPath );
 
-              cardsWithSizes.push( {
-                cardPath: cardPath,
-                dataUrl: dataUrl,
-                aspectRatio: aspectRatio
-              });
+            if (cardToUnderlyingMap[actualCard.fullName]) {
+              underlyingCardNames.push(cardToUnderlyingMap[actualCard.fullName]);
+            }
 
-              addNextCard(currentCardIndex+1);
+            // Async function to keep adding new cards until finished
+            convertImgToBase64(isWhiteBorder, cardPath, canvas, img, function(dataUrl, aspectRatio) {
+
+                cardsWithSizes.push( {
+                  cardPath: cardPath,
+                  dataUrl: dataUrl,
+                  aspectRatio: aspectRatio
+                });
+
+                addNextCard(currentCardIndex+1);
+            });
           });
         }
     }
 
     addNextCard(0);
+}
+
+function findCardWithName(name) {
+  name = name.replace(" (WB)", "")
+  for (var i = 0; i < printableCards.length; i++) {
+    var card = printableCards[i];
+    if (card.fullName == name) {
+      return card;
+    }
+  }
+  console.log("Couldn't find printable card!! Name: " + name);
+  return null;
 }
 
 setTimeout(setupKeyListener, 1000);
@@ -599,85 +640,66 @@ var allCardNames  = [];
 var allCardImages = [];
 
 var allCards = [];
-var cardToUnderlyingMap = {}
-
-function loadUnderlyingCardData() {
-  // TODO:  Get the JSON files added into vkit so we can access these via a relative URL instead of hitting scomp
-  //jQuery.getJSON('Light.json', function(light) {
-  jQuery.getJSON('https://scomp.starwarsccg.org/Light.json', function(light) {
-    light.cards.forEach(function(card) {
-      allCards.push(card);
-    });
-
-    //jQuery.getJSON('Dark.json', function(dark) {
-    jQuery.getJSON('https://scomp.starwarsccg.org/Dark.json', function(dark) {
-      dark.cards.forEach(function(card) {
-        allCards.push(card);
-      });
-
-
-      var strippedActualCards = allCardNames.map(actualCard => actualCard.replace(/[^a-zA-Z0-9]/g, ''));
-
-      // Loop through all of the "underlyingCardFor" entries and build a mapping of
-      // the virtual card names to the underlying cards
-      allCards.forEach(function(card) {
-
-        if (card.underlyingCardFor && card.underlyingCardFor.length > 0) {
-          card.underlyingCardFor.forEach(function(underlyingForName) {
-            // transitioning from a list of strings to a list of objects with a title field containing 
-            // the string - this will account for that difference in underlying data, can be removed
-            // once the json data is fully converted
-            if (underlyingForName.hasOwnProperty('title')) {
-              tmpUnderlyingName = underlyingForName.title;
-              underlyingForName = tmpUnderlyingName;
-            }
-
-            // Find the card with that underlying
-            var jsonVCardName = stripTitleToBasics(underlyingForName);
-            var vkitCardName = getBestMatchForCard(jsonVCardName, strippedActualCards);
-            
-            cardToUnderlyingMap[vkitCardName] = card.front.title;
-          });
-        }
-      });
-
-    });
-    
-  });
-}
-
-function getBestMatchForCard(cardName, strippedActualCards) {
-  var bestMatchIndex = -1;
-  var bestMatchSimilarity = 0.5;
-
-  for (var i = 0; i < strippedActualCards.length; i++) {
-    var matchPercent = similarity(cardName, strippedActualCards[i]);
-    if (matchPercent > bestMatchSimilarity) {
-      bestMatchIndex = i;
-      bestMatchSimilarity = matchPercent;
-    }
-  }
-  if (bestMatchIndex >= 0 && bestMatchSimilarity > 0.8) {
-    return strippedActualCards[bestMatchIndex];
-  }
-  return null;
-}
+var cardToUnderlyingMap = {} // Map of ["Printable card name", -> "Underlying actual Card Name"]
 
 
 jQuery(document).ready(function() {
 
   console.log("After Loaded");
 
-    jQuery.getJSON('allCards.json', function(data) {
-      allCardNames  = data.allCardNames;
-      allCardImages = data.allCardImages;
-      console.log("allCardNames:", JSON.stringify(allCardNames));
+  jQuery.getJSON('Light.json', function(light) {
+  //jQuery.getJSON('https://scomp.starwarsccg.org/Light.json', function(light) {
+    light.cards.forEach(function(card) {
+      allCards.push(card);
+      addCardIfPrintable(card);
+    });
+
+    jQuery.getJSON('Dark.json', function(dark) {
+    //jQuery.getJSON('https://scomp.starwarsccg.org/Dark.json', function(dark) {
+      dark.cards.forEach(function(card) {
+        allCards.push(card);
+        addCardIfPrintable(card);
+      });
+
+      
+      allCards.forEach(function(card) {
+        if (card.underlyingCardFor && card.underlyingCardFor.length > 0) {
+          card.underlyingCardFor.forEach(function(underlyingFor) {
+            // transitioning from a list of strings to a list of objects with a title field containing 
+            // the string - this will account for that difference in underlying data, can be removed
+            // once the json data is fully converted
+            var underlyingForName = underlyingFor;
+            if (underlyingFor.hasOwnProperty('title')) {
+              underlyingForName = underlyingForName.title;
+            }
+
+            cardToUnderlyingMap[underlyingForName] = card.fullName;
+          });
+        }
+      });
+
       popuplateSpacingFields();
-      updateMatchingCards();
-    }); // jQuery.getJSON('allCards.json', function(data)
 
+      filterChanged();
+    });
 
-    if (isCardListEnabled()) {
-      loadUnderlyingCardData()
-    }
+  });
 });
+
+// ----- NEW ----
+var printableCards = [];
+
+function addCardIfPrintable(card) {
+  card.fullName = buildCardName(card);
+  if (card.front.printableSlipUrl || (card.back && card.back.printableSlipUrl)) {
+    printableCards.push(card);
+  }
+}
+
+function buildCardName(card) {
+  var fullName = card.front.title;
+  //if (card.back) {
+  //  fullName += " / " + card.back.title;
+  //}
+  return fullName;
+}
