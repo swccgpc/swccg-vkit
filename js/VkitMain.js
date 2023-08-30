@@ -13,7 +13,7 @@ var spacingOptions = {
   verticalSpacingInches: 0
 };
 
-var printableCards = []; // List of ALL full Card objects which can be printed
+var allPrintableJsonCards = []; // List of ALL full Card objects which can be printed
 var matchingCardNames = [];  // List of card NAMES matching the filter
 var cardsForPdf = []; // List of card NAMES which will go on the PDF
 
@@ -89,19 +89,19 @@ function updateMatchingCards() {
 
 
     matchingCardNames.length = 0;
-    for (i = 0; i < printableCards.length; i++) {
+    for (i = 0; i < allPrintableJsonCards.length; i++) {
         var matches = false;
 
         var lowercaseFilterText = filterText.toLowerCase();
 
         if ("" === lowercaseFilterText) {
             matches = true;
-        } else if (-1 != printableCards[i].fullName.toLowerCase().indexOf(lowercaseFilterText)) {
+        } else if (-1 != allPrintableJsonCards[i].fullName.toLowerCase().indexOf(lowercaseFilterText)) {
             matches = true;
         }
 
         if (matches) {
-            matchingCardNames.push(printableCards[i].fullName);
+            matchingCardNames.push(allPrintableJsonCards[i].fullName);
         }
     }
 
@@ -447,8 +447,8 @@ function generatePdf() {
 
 function findCardWithName(name) {
   name = name.replace(" (WB)", "")
-  for (var i = 0; i < printableCards.length; i++) {
-    var card = printableCards[i];
+  for (var i = 0; i < allPrintableJsonCards.length; i++) {
+    var card = allPrintableJsonCards[i];
     if (card.fullName == name) {
       return card;
     }
@@ -639,8 +639,10 @@ function editDistance(s1, s2) {
 var allCardNames  = [];
 var allCardImages = [];
 
-var allCards = [];
-var cardToUnderlyingMap = {} // Map of ["Printable card name", -> "Underlying actual Card Name"]
+var allJsonCards = [];
+var allPrintableJsonCards = [];
+var cardGuidToCardMap = {};
+var cardToUnderlyingMap = {}; // Map of ["Printable card name", -> "Underlying actual Card Name"]
 
 
 jQuery(document).ready(function() {
@@ -649,20 +651,25 @@ jQuery(document).ready(function() {
 
   jQuery.getJSON('Light.json', function(light) {
   //jQuery.getJSON('https://scomp.starwarsccg.org/Light.json', function(light) {
-    light.cards.forEach(function(card) {
-      allCards.push(card);
-      addCardIfPrintable(card);
-    });
+    
 
     jQuery.getJSON('Dark.json', function(dark) {
     //jQuery.getJSON('https://scomp.starwarsccg.org/Dark.json', function(dark) {
+
+      light.cards.forEach(function(card) {
+        allJsonCards.push(card);
+      });
+
       dark.cards.forEach(function(card) {
-        allCards.push(card);
-        addCardIfPrintable(card);
+        allJsonCards.push(card);
       });
 
       
-      allCards.forEach(function(card) {
+      allJsonCards.forEach(function(card) {
+
+        card.guid = gener
+        addCardIfPrintable(card);
+
         if (card.underlyingCardFor && card.underlyingCardFor.length > 0) {
           card.underlyingCardFor.forEach(function(underlyingFor) {
             // transitioning from a list of strings to a list of objects with a title field containing 
@@ -686,13 +693,11 @@ jQuery(document).ready(function() {
   });
 });
 
-// ----- NEW ----
-var printableCards = [];
 
 function addCardIfPrintable(card) {
   card.fullName = buildCardName(card);
   if (card.front.printableSlipUrl || (card.back && card.back.printableSlipUrl)) {
-    printableCards.push(card);
+    allPrintableJsonCards.push(card);
   }
 }
 
