@@ -6,6 +6,8 @@ var MAX_PAGE_RIGHT = 8.5 - MARGIN_TOP;
 
 var CARD_WIDTH = 2.49;
 
+var IS_LOCAL_DEVELOPMENT = true;
+
 var spacingOptions = {
   horizontalSpacing: 0,
   verticalSpacing: 0,
@@ -13,9 +15,8 @@ var spacingOptions = {
   verticalSpacingInches: 0
 };
 
-var allPrintableJsonCards = []; // List of ALL full Card objects which can be printed
-var matchingCardNames = [];  // List of card NAMES matching the filter
-var cardsForPdf = []; // List of card NAMES which will go on the PDF
+var allPrintableCards = []; // List of ALL full Card objects which can be printed
+var cardGuidsForPdf = []; // List of card GUIDs which will go on the PDF
 
 var printedCards = [];
 var includeUnderlyingCardList = false;
@@ -88,20 +89,20 @@ function updateMatchingCards() {
     console.log("Filter Change!: " + filterText);
 
 
-    matchingCardNames.length = 0;
-    for (i = 0; i < allPrintableJsonCards.length; i++) {
+    var matchingCardGuids = [];
+    for (i = 0; i < allPrintableCards.length; i++) {
         var matches = false;
 
         var lowercaseFilterText = filterText.toLowerCase();
 
         if ("" === lowercaseFilterText) {
             matches = true;
-        } else if (-1 != allPrintableJsonCards[i].fullName.toLowerCase().indexOf(lowercaseFilterText)) {
+        } else if (-1 != allPrintableCards[i].fullName.toLowerCase().indexOf(lowercaseFilterText)) {
             matches = true;
         }
 
         if (matches) {
-            matchingCardNames.push(allPrintableJsonCards[i].fullName);
+          matchingCardGuids.push(allPrintableCards[i].guid);
         }
     }
 
@@ -120,10 +121,10 @@ function updateMatchingCards() {
     // 3. The same place that we strip out " (WB)", also strip out (Dark), (Light), and (Errata)
 
 
-    for (i = 0; i < matchingCardNames.length; i++) {
-        var matchingName = matchingCardNames[i];
-        console.log("Add card: " + matchingName);
-        jQuery('#selectAdds').append('<option value="' + matchingName + '">' + matchingName + '</option>');
+    for (i = 0; i < matchingCardGuids.length; i++) {
+        var matchingCardGuid = matchingCardGuids[i];
+        console.log("Add card: " + matchingCardGuid);
+        jQuery('#selectAdds').append('<option value="' + matchingCardGuid + '">' + cardTitleForGuid(matchingCardGuid) + '</option>');
     }
 
     // Automatically select the first card in the search results
@@ -131,6 +132,27 @@ function updateMatchingCards() {
       jQuery('#selectAdds > option:eq(0)').prop('selected', true)
     }
 
+}
+
+
+function isWhiteBorderGuid(guid) {
+  return (-1 != guid.indexOf(" (WB"));
+}
+
+function cardFromGuid(guid) {
+  if (guidToCardMap[guid]) {
+    return guidToCardMap[guid];
+  } else if (isWhiteBorderGuid(guid)) {
+    var normalCardGuid = guid.replace(" (WB)", "");
+    return cardFromGuid(normalCardGuid);
+  }
+
+  console.log("Error looking up card for guid: " + guid);
+  return null;
+}
+
+function cardTitleForGuid(guid) {
+  return cardFromGuid(guid).fullName;
 }
 
 function queueFilterChange() {
@@ -145,23 +167,24 @@ function addSelectedCards(isWhiteBorder) {
 
   // Try to add the cards next to it's duplicates (if exist)
   jQuery("#selectAdds").find(":selected").each(function() {
-      var cardToAdd = jQuery(this).val();
+      var cardGuidToAdd = jQuery(this).val();
 
+      // TODO: Fix Whiteborder implementation
       if (isWhiteBorder) {
-          cardToAdd += " (WB)";
+          cardGuidToAdd += " (WB)";
       }
 
       var inserted = false;
-      for (var j = 0; j < cardsForPdf.length; j++) {
-          if (cardsForPdf[j] == cardToAdd) {
-              cardsForPdf.splice(j, 0, cardToAdd);
+      for (var j = 0; j < cardGuidsForPdf.length; j++) {
+          if (cardGuidsForPdf[j] == cardGuidToAdd) {
+              cardGuidsForPdf.splice(j, 0, cardGuidToAdd);
               inserted = true;
               break;
           }
       }
 
       if (!inserted) {
-          cardsForPdf.push(cardToAdd);
+          cardGuidsForPdf.push(cardGuidToAdd);
       }
 
       redrawSelectedCards();
@@ -169,7 +192,7 @@ function addSelectedCards(isWhiteBorder) {
       // Selected the last card that we added
       var indexToSelect = j;
       if (!inserted) {
-        indexToSelect = cardsForPdf.length - 1;
+        indexToSelect = cardGuidsForPdf.length - 1;
       }
       jQuery('#selectedRemoves > option').eq(indexToSelect).prop('selected', true);
       
@@ -181,20 +204,20 @@ function redrawSelectedCards() {
   jQuery('#selectedRemoves').find('option')
         .remove();
 
-  for (var i = 0; i < cardsForPdf.length; i++) {
-      var match = cardsForPdf[i];
-      console.log("Add card: " + match);
-      jQuery('#selectedRemoves').append('<option value="' + match + '">' + match + '</option>');
+  for (var i = 0; i < cardGuidsForPdf.length; i++) {
+      var cardGuid = cardGuidsForPdf[i];
+      console.log("Add card: " + cardGuid);
+      jQuery('#selectedRemoves').append('<option value="' + cardGuid + '">' + cardTitleForGuid(cardGuid) + '</option>');
   }
 }
 
 function removeSelectedCards() {
     jQuery("#selectedRemoves").find(":selected").each(function() {
         var cardToRemove = jQuery(this).val();
-        for (var j = 0; j < cardsForPdf.length; j++) {
-            if (cardsForPdf[j] == cardToRemove) {
+        for (var j = 0; j < cardGuidsForPdf.length; j++) {
+            if (cardGuidsForPdf[j] == cardToRemove) {
                 jQuery(this).remove();
-                cardsForPdf.splice(j, 1);
+                cardGuidsForPdf.splice(j, 1);
                 break;
             }
         }
@@ -377,10 +400,10 @@ function generatePdf() {
 
         var progressElement = document.getElementById("progressText");
         if (progressElement) {
-          progressElement.innerHTML = "Adding card: " + currentCardIndex + " of " + cardsForPdf.length;
+          progressElement.innerHTML = "Adding card: " + currentCardIndex + " of " + cardGuidsForPdf.length;
         }
 
-        if (currentCardIndex == cardsForPdf.length) {
+        if (currentCardIndex == cardGuidsForPdf.length) {
 
           var halfSlips = [];
           var fullTemplates = [];
@@ -407,11 +430,12 @@ function generatePdf() {
 
         } else {
 
-          var cardName = cardsForPdf[currentCardIndex];
-          var isWhiteBorder = (-1 != cardName.indexOf(" (WB)"));
+          var cardGuid = cardGuidsForPdf[currentCardIndex];
+
+          var isWhiteBorder = isWhiteBorderGuid(cardGuid);
 
           var cardPaths = [];
-          var actualCard = findCardWithName(cardName);
+          var actualCard = cardFromGuid(cardGuid);
           if (actualCard.front.printableSlipUrl) {
             cardPaths.push(actualCard.front.printableSlipUrl);
           }
@@ -445,17 +469,6 @@ function generatePdf() {
     addNextCard(0);
 }
 
-function findCardWithName(name) {
-  name = name.replace(" (WB)", "")
-  for (var i = 0; i < allPrintableJsonCards.length; i++) {
-    var card = allPrintableJsonCards[i];
-    if (card.fullName == name) {
-      return card;
-    }
-  }
-  console.log("Couldn't find printable card!! Name: " + name);
-  return null;
-}
 
 setTimeout(setupKeyListener, 1000);
 
@@ -522,7 +535,7 @@ function loadEventFromFile() {
 
     function receivedText(e) {
       var lines = e.target.result;
-      loadCards(lines);
+      loadCardsFromFile(lines);
       input.onchange = function() {};
       jQuery(input).val(null);
     }
@@ -530,13 +543,15 @@ function loadEventFromFile() {
   input.click();
 }
 
-function loadCards(fileContents) {
+
+function loadCardsFromFile(fileContents) {
   if (fileContents.indexOf("<?xml ") != -1) {
     loadCardFromGempExport(fileContents);
   } else {
     alert("Gemp plaintext lists not supported yet. Please use GEMP Deck Export files for now")
   }
 }
+
 
 function loadCardFromGempExport(fileContents) {
 
@@ -554,6 +569,7 @@ function loadCardFromGempExport(fileContents) {
 
   addCardsByNames(cardNames);
 }
+
 
 function addCardsByNames(cardNames) {
 
@@ -575,7 +591,7 @@ function addCardsByNames(cardNames) {
     }
 
     if (bestMatchIndex != -1 && bestMatchSimilarity > 0.8) {
-      cardsForPdf.push(allCardNames[bestMatchIndex]);
+      cardGuidsForPdf.push(allCardNames[bestMatchIndex]);
     }
 
   });
@@ -640,66 +656,132 @@ var allCardNames  = [];
 var allCardImages = [];
 
 var allJsonCards = [];
-var allPrintableJsonCards = [];
-var cardGuidToCardMap = {};
+var allPrintableCards = [];
+var guidToCardMap = {};
 var cardToUnderlyingMap = {}; // Map of ["Printable card name", -> "Underlying actual Card Name"]
+var gempIdToCardMap = {};
+
+
+function startup() {
+
+  jQuery.getJSON('Light.json', function(light) {
+    //jQuery.getJSON('https://scomp.starwarsccg.org/Light.json', function(light) {
+      
+  
+      jQuery.getJSON('Dark.json', function(dark) {
+      //jQuery.getJSON('https://scomp.starwarsccg.org/Dark.json', function(dark) {
+  
+        light.cards.forEach(function(card) {
+          allJsonCards.push(card);
+        });
+  
+        dark.cards.forEach(function(card) {
+          allJsonCards.push(card);
+        });
+  
+        if (IS_LOCAL_DEVELOPMENT) {
+          useLocalImagePaths(allJsonCards);
+        }
+        
+        allJsonCards.forEach(function(card) {
+  
+          card.guid = generateGUID();
+          guidToCardMap[card.guid] = card;
+          gempIdToCardMap[card.gempId] = card;
+  
+          addCardIfPrintable(card);
+  
+          if (card.underlyingCardFor && card.underlyingCardFor.length > 0) {
+            card.underlyingCardFor.forEach(function(underlyingFor) {
+              // transitioning from a list of strings to a list of objects with a title field containing 
+              // the string - this will account for that difference in underlying data, can be removed
+              // once the json data is fully converted
+              var underlyingForName = underlyingFor;
+              if (underlyingFor.hasOwnProperty('title')) {
+                underlyingForName = underlyingForName.title;
+              }
+  
+              cardToUnderlyingMap[underlyingForName] = card.fullName;
+            });
+          }
+        });
+
+        enhanceCardNames();
+  
+        popuplateSpacingFields();
+  
+        filterChanged();
+      });
+  
+    });
+}
+
+function enhanceCardNames() {
+
+  // Add " (Errata)" for all non-virtual Erratas
+  allPrintableCards.forEach(function(card) {
+    if (isCardNonVirtualErrata(card)) {
+      card.fullName += " (Errata)";
+    }
+  });
+
+  allPrintableCards.forEach(function(card) {
+    // See if we have another card with the same name. If so, append the side of the force
+    var foundMatch = false;
+    for (var i = 0; i < allPrintableCards.length; i++) {
+      var otherCard = allPrintableCards[i];
+
+      if ((card != otherCard) && card.front.title == otherCard.front.title) {
+        foundMatch = true;
+        break;
+      }
+    }
+
+    if (foundMatch) {
+      card.fullName += " (" + card.side + ")";
+    }
+  });
+  
+}
+
+
+function useLocalImagePaths(jsonCards) {
+  jsonCards.forEach(function(card) {
+    useLocalImagePathsForSide(card.front);
+    useLocalImagePathsForSide(card.back);
+  })
+}
+
+
+// We can't load from res.starwarsccg.org from localhost, so switch to a local version of the images for testing
+function useLocalImagePathsForSide(cardSide) {
+  if (cardSide && cardSide.printableSlipUrl) {
+    cardSide.printableSlipUrl = cardSide.printableSlipUrl.replace("https://res.starwarsccg.org/vkit/", "./");
+  }
+}
 
 
 jQuery(document).ready(function() {
 
   console.log("After Loaded");
-
-  jQuery.getJSON('Light.json', function(light) {
-  //jQuery.getJSON('https://scomp.starwarsccg.org/Light.json', function(light) {
-    
-
-    jQuery.getJSON('Dark.json', function(dark) {
-    //jQuery.getJSON('https://scomp.starwarsccg.org/Dark.json', function(dark) {
-
-      light.cards.forEach(function(card) {
-        allJsonCards.push(card);
-      });
-
-      dark.cards.forEach(function(card) {
-        allJsonCards.push(card);
-      });
-
-      
-      allJsonCards.forEach(function(card) {
-
-        card.guid = gener
-        addCardIfPrintable(card);
-
-        if (card.underlyingCardFor && card.underlyingCardFor.length > 0) {
-          card.underlyingCardFor.forEach(function(underlyingFor) {
-            // transitioning from a list of strings to a list of objects with a title field containing 
-            // the string - this will account for that difference in underlying data, can be removed
-            // once the json data is fully converted
-            var underlyingForName = underlyingFor;
-            if (underlyingFor.hasOwnProperty('title')) {
-              underlyingForName = underlyingForName.title;
-            }
-
-            cardToUnderlyingMap[underlyingForName] = card.fullName;
-          });
-        }
-      });
-
-      popuplateSpacingFields();
-
-      filterChanged();
-    });
-
-  });
+  startup();
+  console.log("Startup Complete");
+  
 });
 
 
 function addCardIfPrintable(card) {
   card.fullName = buildCardName(card);
   if (card.front.printableSlipUrl || (card.back && card.back.printableSlipUrl)) {
-    allPrintableJsonCards.push(card);
+    allPrintableCards.push(card);
   }
 }
+
+function isCardNonVirtualErrata(card) {
+  return (card.front.printableSlipType == "ERRATA") || 
+         (card.back && card.back.printableSlipType == "ERRATA");
+}
+
 
 function buildCardName(card) {
   var fullName = card.front.title;
@@ -708,3 +790,13 @@ function buildCardName(card) {
   //}
   return fullName;
 }
+
+
+function generateGUID() {
+  // http://stackoverflow.com/questions/105034/create-guid-uuid-in-javascript
+  /*jshint bitwise: false*/
+  return   'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+      var r = Math.random()*16|0, v = c === 'x' ? r : (r&0x3|0x8);
+      return v.toString(16);
+  });
+};
