@@ -1,11 +1,19 @@
+// Constants
 var MARGIN_LEFT = 0.35;
 var MARGIN_TOP = 0.35;
-
 var MAX_PAGE_BOTTOM = 11.0 - MARGIN_LEFT;
 var MAX_PAGE_RIGHT = 8.5 - MARGIN_TOP;
-
 var CARD_WIDTH = 2.49;
+var CARD_TEXT_HEIGHT = 0.25;
+var UNDERLYING_CARD_INDENT = 1.0;
 
+var TITLE_FIELD = "title";
+var SLIP_URL_FIELD = "printableSlipUrl";
+var SLIP_TYPE_FIELD = "printableSlipType";
+var SLIP_TYPE_ERRATA = "ERRATA";
+
+
+// Spacing
 var spacingOptions = {
   horizontalSpacing: 0,
   verticalSpacing: 0,
@@ -13,12 +21,34 @@ var spacingOptions = {
   verticalSpacingInches: 0
 };
 
-var matchingCards = [];
-var cardsForPdf = [];
-var printedCards = [];
-var includeUnderlyingCardList = false;
+// Lists and Maps
+var allPrintableCards = []; // List of ALL full Card objects which can be printed
+var cardGuidsForPdf = []; // List of card GUIDs which will go on the PDF
 
-console.log("Vkit Verison 1.3");
+// Names for every card in the system (for matching purposes)
+var allCardNames  = [];
+
+// Every JSON Card
+var allJsonCards = [];
+
+// Every JSON card which is printable (Virtual / Errata)
+var allPrintableCards = [];
+
+// Mapping of GUID -> JSON Card for quick lookups
+var guidToCardMap = {};
+
+// Map of [StrippedPrintableCardName, -> "Underlying actual Card Name"]
+var cardTitleToUnderlyingCardTitleMap = {}; 
+
+// Map of GEMP ID -> JSON Card object
+var gempIdToCardMap = {};
+
+
+// Bindable checkboxes in the UI
+var includeUnderlyingCardList = false;
+var includeOutsideOfDeckCards = false;
+
+console.log("Vkit Verison 1.5");
 
 function popuplateSpacingFields() {
   document.getElementById("inputHorizontalSpacing").value = spacingOptions.horizontalSpacing;
@@ -77,6 +107,8 @@ function getFilterText() {
   return textObj.val();
 }
 
+
+// Handle a change in the Filter, re-generating a list of 'matchingCards'
 function updateMatchingCards() {
     var i = 0;
 
@@ -84,37 +116,70 @@ function updateMatchingCards() {
     console.log("Filter Change!: " + filterText);
 
 
-    matchingCards.length = 0;
-    for (i = 0; i < allCardNames.length; i++) {
+    var matchingCardGuids = [];
+    for (i = 0; i < allPrintableCards.length; i++) {
         var matches = false;
 
         var lowercaseFilterText = filterText.toLowerCase();
 
         if ("" === lowercaseFilterText) {
             matches = true;
-        } else if (-1 != allCardNames[i].toLowerCase().indexOf(lowercaseFilterText)) {
+        } else if (-1 != allPrintableCards[i].fullName.toLowerCase().indexOf(lowercaseFilterText)) {
             matches = true;
         }
 
         if (matches) {
-            matchingCards.push(allCardNames[i]);
+          matchingCardGuids.push(allPrintableCards[i].guid);
         }
     }
 
     jQuery('#selectAdds').find('option')
       .remove();
 
-    for (i = 0; i < matchingCards.length; i++) {
-        var match = matchingCards[i];
-        console.log("Add card: " + match);
-        jQuery('#selectAdds').append('<option value="' + match + '">' + match + '</option>');
+
+    // TODO:
+    // 1. Put Card IDs into the list instead of card names
+    // 2. Distinguish between Light and Dark sides of cards. EX: Sandcrawler (Dark) (Errata)
+    // 3. Add "(Errata)" label for erratas
+
+    // Ideas:
+    // 1. On load, iterate through all cards looking for Dups. If Dups found, then add Light/Dark
+    // 2. Include "(Errata)" in fullName (change to 'displayName')
+    // 3. The same place that we strip out " (WB)", also strip out (Dark), (Light), and (Errata)
+
+
+    for (i = 0; i < matchingCardGuids.length; i++) {
+        var matchingCardGuid = matchingCardGuids[i];
+        console.log("Add card: " + matchingCardGuid);
+        jQuery('#selectAdds').append('<option value="' + matchingCardGuid + '">' + cardTitleForGuid(matchingCardGuid) + '</option>');
     }
 
     // Automatically select the first card in the search results
-    if (matchingCards.length > 0) {
+    var matchingCards = jQuery('#selectAdds > option:eq(0)');
+    if (matchingCards && matchingCards.length > 0) {
       jQuery('#selectAdds > option:eq(0)').prop('selected', true)
     }
+}
 
+
+function isWhiteBorderGuid(guid) {
+  return (-1 != guid.indexOf(" (WB"));
+}
+
+function cardFromGuid(guid) {
+  if (guidToCardMap[guid]) {
+    return guidToCardMap[guid];
+  } else if (isWhiteBorderGuid(guid)) {
+    var normalCardGuid = guid.replace(" (WB)", "");
+    return cardFromGuid(normalCardGuid);
+  }
+
+  console.log("Error looking up card for guid: " + guid);
+  return null;
+}
+
+function cardTitleForGuid(guid) {
+  return cardFromGuid(guid).fullName;
 }
 
 function queueFilterChange() {
@@ -129,23 +194,24 @@ function addSelectedCards(isWhiteBorder) {
 
   // Try to add the cards next to it's duplicates (if exist)
   jQuery("#selectAdds").find(":selected").each(function() {
-      var cardToAdd = jQuery(this).val();
+      var cardGuidToAdd = jQuery(this).val();
 
+      // TODO: Fix Whiteborder implementation
       if (isWhiteBorder) {
-          cardToAdd += " (WB)";
+          cardGuidToAdd += " (WB)";
       }
 
       var inserted = false;
-      for (var j = 0; j < cardsForPdf.length; j++) {
-          if (cardsForPdf[j] == cardToAdd) {
-              cardsForPdf.splice(j, 0, cardToAdd);
+      for (var j = 0; j < cardGuidsForPdf.length; j++) {
+          if (cardGuidsForPdf[j] == cardGuidToAdd) {
+              cardGuidsForPdf.splice(j, 0, cardGuidToAdd);
               inserted = true;
               break;
           }
       }
 
       if (!inserted) {
-          cardsForPdf.push(cardToAdd);
+          cardGuidsForPdf.push(cardGuidToAdd);
       }
 
       redrawSelectedCards();
@@ -153,7 +219,7 @@ function addSelectedCards(isWhiteBorder) {
       // Selected the last card that we added
       var indexToSelect = j;
       if (!inserted) {
-        indexToSelect = cardsForPdf.length - 1;
+        indexToSelect = cardGuidsForPdf.length - 1;
       }
       jQuery('#selectedRemoves > option').eq(indexToSelect).prop('selected', true);
       
@@ -165,20 +231,20 @@ function redrawSelectedCards() {
   jQuery('#selectedRemoves').find('option')
         .remove();
 
-  for (var i = 0; i < cardsForPdf.length; i++) {
-      var match = cardsForPdf[i];
-      console.log("Add card: " + match);
-      jQuery('#selectedRemoves').append('<option value="' + match + '">' + match + '</option>');
+  for (var i = 0; i < cardGuidsForPdf.length; i++) {
+      var cardGuid = cardGuidsForPdf[i];
+      console.log("Add card: " + cardGuid);
+      jQuery('#selectedRemoves').append('<option value="' + cardGuid + '">' + cardTitleForGuid(cardGuid) + '</option>');
   }
 }
 
 function removeSelectedCards() {
     jQuery("#selectedRemoves").find(":selected").each(function() {
         var cardToRemove = jQuery(this).val();
-        for (var j = 0; j < cardsForPdf.length; j++) {
-            if (cardsForPdf[j] == cardToRemove) {
+        for (var j = 0; j < cardGuidsForPdf.length; j++) {
+            if (cardGuidsForPdf[j] == cardToRemove) {
                 jQuery(this).remove();
-                cardsForPdf.splice(j, 1);
+                cardGuidsForPdf.splice(j, 1);
                 break;
             }
         }
@@ -239,9 +305,8 @@ function setPrintPoint(pointObj, top, left, bottom, right) {
   pointObj.right = right;
 }
 
-var CARD_TEXT_HEIGHT = 0.25;
-var UNDERLYING_CARD_INDENT = 1.0;
 
+// Add a list of underlying cards to the last page of the PDF
 function printCardNames(doc, cardNames, lastPrintPoint) {
 
   if (!isCardListEnabled()) {
@@ -270,6 +335,7 @@ function printCardNames(doc, cardNames, lastPrintPoint) {
   
 }
 
+// Given a list of card NAMEs, add those actual cards to the PDF
 function printCards(doc, cardsToPrint, lastPrintPoint) {
 
   for (var i = 0; i < cardsToPrint.length; i++) {
@@ -290,7 +356,6 @@ function printCards(doc, cardsToPrint, lastPrintPoint) {
           addedPageOrRow = true;
           nextTop = MARGIN_TOP;
           nextLeft = MARGIN_LEFT;
-          //setPrintPoint(lastPrintPoint, MARGIN_TOP, MARGIN_LEFT, MARGIN_TOP, MARGIN_LEFT);
       }
 
       // If this card will exceed the width, add a new row OR a new page if needed
@@ -355,14 +420,15 @@ function generatePdf() {
     var cardsWithSizes = [];
     var underlyingCardNames = [];
 
-    function addNextCard(currentCardIndex) {
+
+    function addNextCard(currentCardIndex, shouldPrintBack) {
 
         var progressElement = document.getElementById("progressText");
         if (progressElement) {
-          progressElement.innerHTML = "Adding card: " + currentCardIndex + " of " + cardsForPdf.length;
+          progressElement.innerHTML = "Adding card: " + currentCardIndex + " of " + cardGuidsForPdf.length;
         }
 
-        if (currentCardIndex == cardsForPdf.length) {
+        if (currentCardIndex == cardGuidsForPdf.length) {
 
           var halfSlips = [];
           var fullTemplates = [];
@@ -389,14 +455,30 @@ function generatePdf() {
 
         } else {
 
-          var cardName = cardsForPdf[currentCardIndex];
-          var isWhiteBorder = (-1 != cardName.indexOf(" (WB)"));
-          var cardPath = allCardImages[cardName];
+          var cardGuid = cardGuidsForPdf[currentCardIndex];
+
+          var isWhiteBorder = isWhiteBorderGuid(cardGuid);
+
+          var actualCard = cardFromGuid(cardGuid);
+
+          var cardPath = actualCard.front[SLIP_URL_FIELD];
+          if (shouldPrintBack && actualCard.back && actualCard.back[SLIP_URL_FIELD]) {
+            cardPath = actualCard.back[SLIP_URL_FIELD];
+          }
+
           console.log("image: " + cardPath );
 
-          var strippedCardName = stripTitleToBasics(cardName);
-          if (cardToUnderlyingMap[strippedCardName]) {
-            underlyingCardNames.push(cardToUnderlyingMap[strippedCardName]);
+          var underlyingCardTitle = getUnderlyingCardTitleForCard(actualCard);
+          if (underlyingCardTitle) {
+            underlyingCardNames.push(underlyingCardTitle);
+          } else {
+            console.error("Couldn't find underlying card for: " + getCardTitle(actualCard));
+          }
+
+
+          var printBackNext = false;
+          if (!shouldPrintBack && actualCard.back && actualCard.back[SLIP_URL_FIELD]) {
+            printBackNext = true;
           }
 
           // Async function to keep adding new cards until finished
@@ -408,13 +490,20 @@ function generatePdf() {
                 aspectRatio: aspectRatio
               });
 
-              addNextCard(currentCardIndex+1);
+              if (printBackNext) {
+                // Print it a second time, but this time with the back
+                addNextCard(currentCardIndex, true);
+              } else {
+                addNextCard(currentCardIndex + 1);
+              }
+
           });
         }
     }
 
     addNextCard(0);
 }
+
 
 setTimeout(setupKeyListener, 1000);
 
@@ -481,7 +570,7 @@ function loadEventFromFile() {
 
     function receivedText(e) {
       var lines = e.target.result;
-      loadCards(lines);
+      loadCardsFromFile(lines);
       input.onchange = function() {};
       jQuery(input).val(null);
     }
@@ -489,7 +578,8 @@ function loadEventFromFile() {
   input.click();
 }
 
-function loadCards(fileContents) {
+
+function loadCardsFromFile(fileContents) {
   if (fileContents.indexOf("<?xml ") != -1) {
     loadCardFromGempExport(fileContents);
   } else {
@@ -497,24 +587,45 @@ function loadCards(fileContents) {
   }
 }
 
+
 function loadCardFromGempExport(fileContents) {
 
-  var includeShields = confirm("Include shields and other cards from outside of deck?");
+  var includeShields = confirm("Include shields and other cards from outside of deck?\n\n (Cancel = No)");
 
   // Kill all lines which start with "<cardOutsideDeck"
   if (!includeShields) {
     fileContents = fileContents.replace(/cardOutsideDeck.*>/g, '');
   }
 
+  addCardsByGempIds(fileContents);
+}
+
+function addCardsByGempIds(fileContents) {
+
+  const regexp = /blueprintId="([a-zA-Z 0-9_]*)"/g;
+
+  const matches = [...fileContents.matchAll(regexp)];
+  const gempIds = matches.map(match => match[1]);
+
+  gempIds.forEach(function(gempId) {
+
+    var matchingCard = gempIdToCardMap[gempId];
+    if (matchingCard) {
+      cardGuidsForPdf.push(matchingCard.guid);
+    }
+    
+  });
+
+  redrawSelectedCards();
+}
+
+
+function addCardsByNames(fileContents) {
+
   const regexp = /title="([a-zA-Z 0-9,.:'&\\\/\"\-]*)"/g;
 
   const matches = [...fileContents.matchAll(regexp)];
   const cardNames = matches.map(match => match[1]);
-
-  addCardsByNames(cardNames);
-}
-
-function addCardsByNames(cardNames) {
 
   const strippedCardNames = cardNames.map(cardName => cardName.replace(/[^a-zA-Z0-9]/g, ''));
   var strippedActualCards = allCardNames.map(actualCard => actualCard.replace(/[^a-zA-Z0-9]/g, ''));
@@ -534,7 +645,7 @@ function addCardsByNames(cardNames) {
     }
 
     if (bestMatchIndex != -1 && bestMatchSimilarity > 0.8) {
-      cardsForPdf.push(allCardNames[bestMatchIndex]);
+      cardGuidsForPdf.push(allCardNames[bestMatchIndex]);
     }
 
   });
@@ -595,89 +706,187 @@ function editDistance(s1, s2) {
 }
 
 
-var allCardNames  = [];
-var allCardImages = [];
+// Initial startup of the app - Loads all data and populates all arrays and maps
+function startup() {
 
-var allCards = [];
-var cardToUnderlyingMap = {}
+  var lightCardListUrl = 'https://scomp.starwarsccg.org/Light.json';
+  var darkCardListUrl = 'https://scomp.starwarsccg.org/Dark.json';
+  if (IS_LOCAL_DEVELOPMENT) {
+    lightCardListUrl = 'Light.json'; // Read from local file
+    darkCardListUrl = 'Dark.json'; // Read from local file
+  }
 
-function loadUnderlyingCardData() {
-  // TODO:  Get the JSON files added into vkit so we can access these via a relative URL instead of hitting scomp
-  //jQuery.getJSON('Light.json', function(light) {
-  jQuery.getJSON('https://scomp.starwarsccg.org/Light.json', function(light) {
-    light.cards.forEach(function(card) {
-      allCards.push(card);
-    });
+  jQuery.getJSON(lightCardListUrl, function(light) {  
+    jQuery.getJSON(darkCardListUrl, function(dark) {
 
-    //jQuery.getJSON('Dark.json', function(dark) {
-    jQuery.getJSON('https://scomp.starwarsccg.org/Dark.json', function(dark) {
-      dark.cards.forEach(function(card) {
-        allCards.push(card);
+      light.cards.forEach(function(card) {
+        allJsonCards.push(card);
       });
 
+      dark.cards.forEach(function(card) {
+        allJsonCards.push(card);
+      });
 
-      var strippedActualCards = allCardNames.map(actualCard => actualCard.replace(/[^a-zA-Z0-9]/g, ''));
+      if (IS_LOCAL_DEVELOPMENT) {
+        useLocalImagePaths(allJsonCards);
+      }
+      
+      allJsonCards.forEach(function(card) {
 
-      // Loop through all of the "underlyingCardFor" entries and build a mapping of
-      // the virtual card names to the underlying cards
-      allCards.forEach(function(card) {
+        card.guid = generateGUID();
+        addCardIfPrintable(card);
 
         if (card.underlyingCardFor && card.underlyingCardFor.length > 0) {
-          card.underlyingCardFor.forEach(function(underlyingForName) {
+          card.underlyingCardFor.forEach(function(underlyingFor) {
             // transitioning from a list of strings to a list of objects with a title field containing 
             // the string - this will account for that difference in underlying data, can be removed
             // once the json data is fully converted
-            if (underlyingForName.hasOwnProperty('title')) {
-              tmpUnderlyingName = underlyingForName.title;
-              underlyingForName = tmpUnderlyingName;
+            var underlyingForName = underlyingFor;
+            if (underlyingFor.hasOwnProperty('title')) {
+              underlyingForName = underlyingForName.title;
             }
 
-            // Find the card with that underlying
-            var jsonVCardName = stripTitleToBasics(underlyingForName);
-            var vkitCardName = getBestMatchForCard(jsonVCardName, strippedActualCards);
-            
-            cardToUnderlyingMap[vkitCardName] = card.front.title;
+            addUnderlyingCardMapping(underlyingForName, getCardTitle(card));
           });
         }
       });
 
+      enhanceCardNames();
+
+      popuplateSpacingFields();
+
+      filterChanged();
     });
-    
+
   });
 }
 
-function getBestMatchForCard(cardName, strippedActualCards) {
-  var bestMatchIndex = -1;
-  var bestMatchSimilarity = 0.5;
 
-  for (var i = 0; i < strippedActualCards.length; i++) {
-    var matchPercent = similarity(cardName, strippedActualCards[i]);
-    if (matchPercent > bestMatchSimilarity) {
-      bestMatchIndex = i;
-      bestMatchSimilarity = matchPercent;
+// Append special suffixes to cards to avoid duplicates (Light), (ERRATA), ect
+function enhanceCardNames() {
+
+  // Add " (Errata)" for all non-virtual Erratas
+  allPrintableCards.forEach(function(card) {
+    if (isCardNonVirtualErrata(card)) {
+      card.fullName += " (Errata)";
     }
-  }
-  if (bestMatchIndex >= 0 && bestMatchSimilarity > 0.8) {
-    return strippedActualCards[bestMatchIndex];
-  }
-  return null;
+  });
+
+  allPrintableCards.forEach(function(card) {
+    // See if we have another card with the same name. If so, append the side of the force
+    var foundMatch = false;
+    for (var i = 0; i < allPrintableCards.length; i++) {
+      var otherCard = allPrintableCards[i];
+
+      if ((card != otherCard) && getCardTitle(card) == getCardTitle(otherCard)) {
+        foundMatch = true;
+        break;
+      }
+    }
+
+    if (foundMatch) {
+      card.fullName += " (" + card.side + ")";
+    }
+  });
+  
 }
 
 
 jQuery(document).ready(function() {
 
   console.log("After Loaded");
-
-    jQuery.getJSON('allCards.json', function(data) {
-      allCardNames  = data.allCardNames;
-      allCardImages = data.allCardImages;
-      console.log("allCardNames:", JSON.stringify(allCardNames));
-      popuplateSpacingFields();
-      updateMatchingCards();
-    }); // jQuery.getJSON('allCards.json', function(data)
-
-
-    if (isCardListEnabled()) {
-      loadUnderlyingCardData()
-    }
+  startup();
+  console.log("Startup Complete");
+  
 });
+
+
+// ------ JSON Card Field access ------
+// These should all be member functions of the JSON card data
+// but until we get to that point, these will suffice
+
+function addCardIfPrintable(card) {
+  card.fullName = buildCardName(card);
+
+  if (isPrintable(card)) {
+    allPrintableCards.push(card);
+    guidToCardMap[card.guid] = card;
+    gempIdToCardMap[card.gempId] = card;
+  }
+}
+
+function isPrintable(card) {
+  return getFrontSlipUrl(card) || getBackSlipUrl(card);
+}
+
+function isCardNonVirtualErrata(card) {
+  return getSlipType(card) == SLIP_TYPE_ERRATA;
+}
+
+function buildCardName(card) {
+  var fullName = getCardTitle(card);
+  return fullName;
+}
+
+
+function getUnderlyingCardTitleForCard(card) {
+  var cardTitle = stripTitleToBasics(getCardTitle(card));
+  return cardTitleToUnderlyingCardTitleMap[cardTitle];
+}
+
+function addUnderlyingCardMapping(printableCardName, underlyingCardTitle) {
+  printableCardName = stripTitleToBasics(printableCardName);
+  cardTitleToUnderlyingCardTitleMap[printableCardName] = underlyingCardTitle;
+}
+
+function getCardTitle(card) {
+  return card.front[TITLE_FIELD];
+}
+
+function getFrontSlipUrl(card) {
+  return card.front[SLIP_URL_FIELD];
+}
+
+function getBackSlipUrl(card) {
+  return card.back ? card.back[SLIP_URL_FIELD] : null;
+}
+
+function getSlipType(card) {
+  var slipType = card.front[SLIP_TYPE_FIELD];
+  if (!slipType && card.back) {
+    slipType = card.back[SLIP_TYPE_FIELD];
+  }
+  return slipType;
+}
+
+
+// ---- Generic Utilities
+function generateGUID() {
+  // http://stackoverflow.com/questions/105034/create-guid-uuid-in-javascript
+  /*jshint bitwise: false*/
+  return   'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+      var r = Math.random()*16|0, v = c === 'x' ? r : (r&0x3|0x8);
+      return v.toString(16);
+  });
+};
+
+
+// ---- Special Utilities for Local Development
+// Can't load  images from the web due to CORS limitations. 
+// So instead, rely on having a copy of that data on your local dev machine
+// These utilities transform the URLs to use './' instead of res.starwarsccg.org/vkit/
+
+var IS_LOCAL_DEVELOPMENT = false; // Don't ever check this in as true!
+
+function useLocalImagePaths(jsonCards) {
+  jsonCards.forEach(function(card) {
+    useLocalImagePathsForSide(card.front);
+    useLocalImagePathsForSide(card.back);
+  })
+}
+
+function useLocalImagePathsForSide(cardSide) {
+  if (cardSide && cardSide[SLIP_URL_FIELD]) {
+    cardSide[SLIP_URL_FIELD] = cardSide[SLIP_URL_FIELD].replace("https://res.starwarsccg.org/vkit/", "./");
+  }
+}
