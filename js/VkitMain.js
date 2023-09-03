@@ -1,13 +1,19 @@
+// Constants
 var MARGIN_LEFT = 0.35;
 var MARGIN_TOP = 0.35;
-
 var MAX_PAGE_BOTTOM = 11.0 - MARGIN_LEFT;
 var MAX_PAGE_RIGHT = 8.5 - MARGIN_TOP;
-
 var CARD_WIDTH = 2.49;
+var CARD_TEXT_HEIGHT = 0.25;
+var UNDERLYING_CARD_INDENT = 1.0;
 
-var IS_LOCAL_DEVELOPMENT = true;
+var TITLE_FIELD = "title";
+var SLIP_URL_FIELD = "printableSlipUrl";
+var SLIP_TYPE_FIELD = "printableSlipType";
+var SLIP_TYPE_ERRATA = "ERRATA";
 
+
+// Spacing
 var spacingOptions = {
   horizontalSpacing: 0,
   verticalSpacing: 0,
@@ -15,13 +21,34 @@ var spacingOptions = {
   verticalSpacingInches: 0
 };
 
+// Lists and Maps
 var allPrintableCards = []; // List of ALL full Card objects which can be printed
 var cardGuidsForPdf = []; // List of card GUIDs which will go on the PDF
 
-var printedCards = [];
-var includeUnderlyingCardList = false;
+// Names for every card in the system (for matching purposes)
+var allCardNames  = [];
 
-console.log("Vkit Verison 1.3");
+// Every JSON Card
+var allJsonCards = [];
+
+// Every JSON card which is printable (Virtual / Errata)
+var allPrintableCards = [];
+
+// Mapping of GUID -> JSON Card for quick lookups
+var guidToCardMap = {};
+
+// Map of [StrippedPrintableCardName, -> "Underlying actual Card Name"]
+var cardTitleToUnderlyingCardTitleMap = {}; 
+
+// Map of GEMP ID -> JSON Card object
+var gempIdToCardMap = {};
+
+
+// Bindable checkboxes in the UI
+var includeUnderlyingCardList = false;
+var includeOutsideOfDeckCards = false;
+
+console.log("Vkit Verison 1.5");
 
 function popuplateSpacingFields() {
   document.getElementById("inputHorizontalSpacing").value = spacingOptions.horizontalSpacing;
@@ -128,10 +155,10 @@ function updateMatchingCards() {
     }
 
     // Automatically select the first card in the search results
-    if (matchingCardNames.length > 0) {
+    var matchingCards = jQuery('#selectAdds > option:eq(0)');
+    if (matchingCards && matchingCards.length > 0) {
       jQuery('#selectAdds > option:eq(0)').prop('selected', true)
     }
-
 }
 
 
@@ -278,9 +305,6 @@ function setPrintPoint(pointObj, top, left, bottom, right) {
   pointObj.right = right;
 }
 
-var CARD_TEXT_HEIGHT = 0.25;
-var UNDERLYING_CARD_INDENT = 1.0;
-
 
 // Add a list of underlying cards to the last page of the PDF
 function printCardNames(doc, cardNames, lastPrintPoint) {
@@ -396,7 +420,8 @@ function generatePdf() {
     var cardsWithSizes = [];
     var underlyingCardNames = [];
 
-    function addNextCard(currentCardIndex) {
+
+    function addNextCard(currentCardIndex, shouldPrintBack) {
 
         var progressElement = document.getElementById("progressText");
         if (progressElement) {
@@ -434,34 +459,44 @@ function generatePdf() {
 
           var isWhiteBorder = isWhiteBorderGuid(cardGuid);
 
-          var cardPaths = [];
           var actualCard = cardFromGuid(cardGuid);
-          if (actualCard.front.printableSlipUrl) {
-            cardPaths.push(actualCard.front.printableSlipUrl);
+
+          var cardPath = actualCard.front[SLIP_URL_FIELD];
+          if (shouldPrintBack && actualCard.back && actualCard.back[SLIP_URL_FIELD]) {
+            cardPath = actualCard.back[SLIP_URL_FIELD];
           }
-          if (actualCard.back && actualCard.back.printableSlipUrl) {
-            cardPaths.push(actualCard.back.printableSlipUrl);
+
+          console.log("image: " + cardPath );
+
+          var underlyingCardTitle = getUnderlyingCardTitleForCard(actualCard);
+          if (underlyingCardTitle) {
+            underlyingCardNames.push(underlyingCardTitle);
+          } else {
+            console.error("Couldn't find underlying card for: " + getCardTitle(actualCard));
           }
 
-          // Add all cards for this card
-          cardPaths.forEach(function(cardPath) {
-            console.log("image: " + cardPath );
 
-            if (cardToUnderlyingMap[actualCard.fullName]) {
-              underlyingCardNames.push(cardToUnderlyingMap[actualCard.fullName]);
-            }
+          var printBackNext = false;
+          if (!shouldPrintBack && actualCard.back && actualCard.back[SLIP_URL_FIELD]) {
+            printBackNext = true;
+          }
 
-            // Async function to keep adding new cards until finished
-            convertImgToBase64(isWhiteBorder, cardPath, canvas, img, function(dataUrl, aspectRatio) {
+          // Async function to keep adding new cards until finished
+          convertImgToBase64(isWhiteBorder, cardPath, canvas, img, function(dataUrl, aspectRatio) {
 
-                cardsWithSizes.push( {
-                  cardPath: cardPath,
-                  dataUrl: dataUrl,
-                  aspectRatio: aspectRatio
-                });
+              cardsWithSizes.push( {
+                cardPath: cardPath,
+                dataUrl: dataUrl,
+                aspectRatio: aspectRatio
+              });
 
-                addNextCard(currentCardIndex+1);
-            });
+              if (printBackNext) {
+                // Print it a second time, but this time with the back
+                addNextCard(currentCardIndex, true);
+              } else {
+                addNextCard(currentCardIndex + 1);
+              }
+
           });
         }
     }
@@ -555,23 +590,42 @@ function loadCardsFromFile(fileContents) {
 
 function loadCardFromGempExport(fileContents) {
 
-  var includeShields = confirm("Include shields and other cards from outside of deck?");
+  var includeShields = confirm("Include shields and other cards from outside of deck?\n\n (Cancel = No)");
 
   // Kill all lines which start with "<cardOutsideDeck"
   if (!includeShields) {
     fileContents = fileContents.replace(/cardOutsideDeck.*>/g, '');
   }
 
+  addCardsByGempIds(fileContents);
+}
+
+function addCardsByGempIds(fileContents) {
+
+  const regexp = /blueprintId="([a-zA-Z 0-9_]*)"/g;
+
+  const matches = [...fileContents.matchAll(regexp)];
+  const gempIds = matches.map(match => match[1]);
+
+  gempIds.forEach(function(gempId) {
+
+    var matchingCard = gempIdToCardMap[gempId];
+    if (matchingCard) {
+      cardGuidsForPdf.push(matchingCard.guid);
+    }
+    
+  });
+
+  redrawSelectedCards();
+}
+
+
+function addCardsByNames(fileContents) {
+
   const regexp = /title="([a-zA-Z 0-9,.:'&\\\/\"\-]*)"/g;
 
   const matches = [...fileContents.matchAll(regexp)];
   const cardNames = matches.map(match => match[1]);
-
-  addCardsByNames(cardNames);
-}
-
-
-function addCardsByNames(cardNames) {
 
   const strippedCardNames = cardNames.map(cardName => cardName.replace(/[^a-zA-Z0-9]/g, ''));
   var strippedActualCards = allCardNames.map(actualCard => actualCard.replace(/[^a-zA-Z0-9]/g, ''));
@@ -652,70 +706,63 @@ function editDistance(s1, s2) {
 }
 
 
-var allCardNames  = [];
-var allCardImages = [];
-
-var allJsonCards = [];
-var allPrintableCards = [];
-var guidToCardMap = {};
-var cardToUnderlyingMap = {}; // Map of ["Printable card name", -> "Underlying actual Card Name"]
-var gempIdToCardMap = {};
-
-
+// Initial startup of the app - Loads all data and populates all arrays and maps
 function startup() {
 
-  jQuery.getJSON('Light.json', function(light) {
-    //jQuery.getJSON('https://scomp.starwarsccg.org/Light.json', function(light) {
-      
-  
-      jQuery.getJSON('Dark.json', function(dark) {
-      //jQuery.getJSON('https://scomp.starwarsccg.org/Dark.json', function(dark) {
-  
-        light.cards.forEach(function(card) {
-          allJsonCards.push(card);
-        });
-  
-        dark.cards.forEach(function(card) {
-          allJsonCards.push(card);
-        });
-  
-        if (IS_LOCAL_DEVELOPMENT) {
-          useLocalImagePaths(allJsonCards);
-        }
-        
-        allJsonCards.forEach(function(card) {
-  
-          card.guid = generateGUID();
-          guidToCardMap[card.guid] = card;
-          gempIdToCardMap[card.gempId] = card;
-  
-          addCardIfPrintable(card);
-  
-          if (card.underlyingCardFor && card.underlyingCardFor.length > 0) {
-            card.underlyingCardFor.forEach(function(underlyingFor) {
-              // transitioning from a list of strings to a list of objects with a title field containing 
-              // the string - this will account for that difference in underlying data, can be removed
-              // once the json data is fully converted
-              var underlyingForName = underlyingFor;
-              if (underlyingFor.hasOwnProperty('title')) {
-                underlyingForName = underlyingForName.title;
-              }
-  
-              cardToUnderlyingMap[underlyingForName] = card.fullName;
-            });
-          }
-        });
+  var lightCardListUrl = 'https://scomp.starwarsccg.org/Light.json';
+  var darkCardListUrl = 'https://scomp.starwarsccg.org/Dark.json';
+  if (IS_LOCAL_DEVELOPMENT) {
+    lightCardListUrl = 'Light.json'; // Read from local file
+    darkCardListUrl = 'Dark.json'; // Read from local file
+  }
 
-        enhanceCardNames();
-  
-        popuplateSpacingFields();
-  
-        filterChanged();
+  jQuery.getJSON(lightCardListUrl, function(light) {  
+    jQuery.getJSON(darkCardListUrl, function(dark) {
+
+      light.cards.forEach(function(card) {
+        allJsonCards.push(card);
       });
-  
+
+      dark.cards.forEach(function(card) {
+        allJsonCards.push(card);
+      });
+
+      if (IS_LOCAL_DEVELOPMENT) {
+        useLocalImagePaths(allJsonCards);
+      }
+      
+      allJsonCards.forEach(function(card) {
+
+        card.guid = generateGUID();
+        addCardIfPrintable(card);
+
+        if (card.underlyingCardFor && card.underlyingCardFor.length > 0) {
+          card.underlyingCardFor.forEach(function(underlyingFor) {
+            // transitioning from a list of strings to a list of objects with a title field containing 
+            // the string - this will account for that difference in underlying data, can be removed
+            // once the json data is fully converted
+            var underlyingForName = underlyingFor;
+            if (underlyingFor.hasOwnProperty('title')) {
+              underlyingForName = underlyingForName.title;
+            }
+
+            addUnderlyingCardMapping(underlyingForName, getCardTitle(card));
+          });
+        }
+      });
+
+      enhanceCardNames();
+
+      popuplateSpacingFields();
+
+      filterChanged();
     });
+
+  });
 }
 
+
+// Append special suffixes to cards to avoid duplicates (Light), (ERRATA), ect
 function enhanceCardNames() {
 
   // Add " (Errata)" for all non-virtual Erratas
@@ -731,7 +778,7 @@ function enhanceCardNames() {
     for (var i = 0; i < allPrintableCards.length; i++) {
       var otherCard = allPrintableCards[i];
 
-      if ((card != otherCard) && card.front.title == otherCard.front.title) {
+      if ((card != otherCard) && getCardTitle(card) == getCardTitle(otherCard)) {
         foundMatch = true;
         break;
       }
@@ -745,22 +792,6 @@ function enhanceCardNames() {
 }
 
 
-function useLocalImagePaths(jsonCards) {
-  jsonCards.forEach(function(card) {
-    useLocalImagePathsForSide(card.front);
-    useLocalImagePathsForSide(card.back);
-  })
-}
-
-
-// We can't load from res.starwarsccg.org from localhost, so switch to a local version of the images for testing
-function useLocalImagePathsForSide(cardSide) {
-  if (cardSide && cardSide.printableSlipUrl) {
-    cardSide.printableSlipUrl = cardSide.printableSlipUrl.replace("https://res.starwarsccg.org/vkit/", "./");
-  }
-}
-
-
 jQuery(document).ready(function() {
 
   console.log("After Loaded");
@@ -770,28 +801,66 @@ jQuery(document).ready(function() {
 });
 
 
+// ------ JSON Card Field access ------
+// These should all be member functions of the JSON card data
+// but until we get to that point, these will suffice
+
 function addCardIfPrintable(card) {
   card.fullName = buildCardName(card);
-  if (card.front.printableSlipUrl || (card.back && card.back.printableSlipUrl)) {
+
+  if (isPrintable(card)) {
     allPrintableCards.push(card);
+    guidToCardMap[card.guid] = card;
+    gempIdToCardMap[card.gempId] = card;
   }
 }
 
-function isCardNonVirtualErrata(card) {
-  return (card.front.printableSlipType == "ERRATA") || 
-         (card.back && card.back.printableSlipType == "ERRATA");
+function isPrintable(card) {
+  return getFrontSlipUrl(card) || getBackSlipUrl(card);
 }
 
+function isCardNonVirtualErrata(card) {
+  return getSlipType(card) == SLIP_TYPE_ERRATA;
+}
 
 function buildCardName(card) {
-  var fullName = card.front.title;
-  //if (card.back) {
-  //  fullName += " / " + card.back.title;
-  //}
+  var fullName = getCardTitle(card);
   return fullName;
 }
 
 
+function getUnderlyingCardTitleForCard(card) {
+  var cardTitle = stripTitleToBasics(getCardTitle(card));
+  return cardTitleToUnderlyingCardTitleMap[cardTitle];
+}
+
+function addUnderlyingCardMapping(printableCardName, underlyingCardTitle) {
+  printableCardName = stripTitleToBasics(printableCardName);
+  cardTitleToUnderlyingCardTitleMap[printableCardName] = underlyingCardTitle;
+}
+
+function getCardTitle(card) {
+  return card.front[TITLE_FIELD];
+}
+
+function getFrontSlipUrl(card) {
+  return card.front[SLIP_URL_FIELD];
+}
+
+function getBackSlipUrl(card) {
+  return card.back ? card.back[SLIP_URL_FIELD] : null;
+}
+
+function getSlipType(card) {
+  var slipType = card.front[SLIP_TYPE_FIELD];
+  if (!slipType && card.back) {
+    slipType = card.back[SLIP_TYPE_FIELD];
+  }
+  return slipType;
+}
+
+
+// ---- Generic Utilities
 function generateGUID() {
   // http://stackoverflow.com/questions/105034/create-guid-uuid-in-javascript
   /*jshint bitwise: false*/
@@ -800,3 +869,24 @@ function generateGUID() {
       return v.toString(16);
   });
 };
+
+
+// ---- Special Utilities for Local Development
+// Can't load  images from the web due to CORS limitations. 
+// So instead, rely on having a copy of that data on your local dev machine
+// These utilities transform the URLs to use './' instead of res.starwarsccg.org/vkit/
+
+var IS_LOCAL_DEVELOPMENT = false; // Don't ever check this in as true!
+
+function useLocalImagePaths(jsonCards) {
+  jsonCards.forEach(function(card) {
+    useLocalImagePathsForSide(card.front);
+    useLocalImagePathsForSide(card.back);
+  })
+}
+
+function useLocalImagePathsForSide(cardSide) {
+  if (cardSide && cardSide[SLIP_URL_FIELD]) {
+    cardSide[SLIP_URL_FIELD] = cardSide[SLIP_URL_FIELD].replace("https://res.starwarsccg.org/vkit/", "./");
+  }
+}
