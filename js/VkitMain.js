@@ -7,10 +7,14 @@ var CARD_WIDTH = 2.49;
 var CARD_TEXT_HEIGHT = 0.25;
 var UNDERLYING_CARD_INDENT = 1.0;
 
+var CARD_SIDE = "side";
+var CARD_TYPE_FIELD = "type";
 var TITLE_FIELD = "title";
 var SLIP_URL_FIELD = "printableSlipUrl";
 var SLIP_TYPE_FIELD = "printableSlipType";
 var SLIP_TYPE_ERRATA = "ERRATA";
+
+var IS_LOCAL_DEVELOPMENT = false; // Don't ever check this in as true!
 
 
 // Spacing
@@ -712,8 +716,8 @@ function startup() {
   var lightCardListUrl = 'https://scomp.starwarsccg.org/Light.json';
   var darkCardListUrl = 'https://scomp.starwarsccg.org/Dark.json';
   if (IS_LOCAL_DEVELOPMENT) {
-    lightCardListUrl = 'Light.json'; // Read from local file
-    darkCardListUrl = 'Dark.json'; // Read from local file
+    lightCardListUrl = './Light.json'; // Read from local file
+    darkCardListUrl = './Dark.json'; // Read from local file
   }
 
   jQuery.getJSON(lightCardListUrl, function(light) {  
@@ -775,18 +779,27 @@ function enhanceCardNames() {
   allPrintableCards.forEach(function(card) {
     // See if we have another card with the same name. If so, append the side of the force
     var foundMatch = false;
+    var sameNameAndCardType = false;
     for (var i = 0; i < allPrintableCards.length; i++) {
       var otherCard = allPrintableCards[i];
 
       if ((card != otherCard) && getCardTitle(card) == getCardTitle(otherCard)) {
         foundMatch = true;
+        if (getCardType(card) == getCardType(otherCard)) {
+          sameNameAndCardType = true;
+        }
         break;
       }
     }
 
     if (foundMatch) {
-      card.fullName += " (" + card.side + ")";
+      if (!sameNameAndCardType) {
+        card.fullName += " (" + getCardType(card) + ")";  // "A Trajedy Has Occurred (Defensive Shield)"
+      } else {
+        card.fullName += " (" + getCardSide(card) + ")";  // "Alter (Dark)"
+      }
     }
+    
   });
   
 }
@@ -843,6 +856,14 @@ function getCardTitle(card) {
   return card.front[TITLE_FIELD];
 }
 
+function getCardType(card) {
+  return card.front[CARD_TYPE_FIELD];
+}
+
+function getCardSide(card) {
+  return card[CARD_SIDE];
+}
+
 function getFrontSlipUrl(card) {
   return card.front[SLIP_URL_FIELD];
 }
@@ -876,7 +897,7 @@ function generateGUID() {
 // So instead, rely on having a copy of that data on your local dev machine
 // These utilities transform the URLs to use './' instead of res.starwarsccg.org/vkit/
 
-var IS_LOCAL_DEVELOPMENT = false; // Don't ever check this in as true!
+
 
 function useLocalImagePaths(jsonCards) {
   jsonCards.forEach(function(card) {
