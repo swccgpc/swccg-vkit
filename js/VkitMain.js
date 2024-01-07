@@ -713,12 +713,8 @@ function editDistance(s1, s2) {
 // Initial startup of the app - Loads all data and populates all arrays and maps
 function startup() {
 
-  var lightCardListUrl = 'https://scomp.starwarsccg.org/Light.json';
-  var darkCardListUrl = 'https://scomp.starwarsccg.org/Dark.json';
-  if (IS_LOCAL_DEVELOPMENT) {
-    lightCardListUrl = './Light.json'; // Read from local file
-    darkCardListUrl = './Dark.json'; // Read from local file
-  }
+  var lightCardListUrl = '/Light.json';
+  var darkCardListUrl = '/Dark.json';
 
   jQuery.getJSON(lightCardListUrl, function(light) {  
     jQuery.getJSON(darkCardListUrl, function(dark) {
