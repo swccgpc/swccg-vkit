@@ -17,17 +17,10 @@ The best place to ask questions about this project is on the Star Wars CCG Playe
 * `allCards.json` is generated from a listing of the images stored in the `res.starwarsccg.org` S3 Bucket.
 
 
-## Generating the json file
+## The JSON Database
+* The JSON Database comes from [swccg-cards-json](https://github.com/swccgpc/swccg-cards-json).
+* When the card JSON is updated, vkit is automatically updated with the new data. No manual action is required.
 
-* `create_json.js` lists all the images located at `https://res.starwarsccg.org/vkit/cards/standard/` and creates a json file from it.
-* `create_json.js` requires that environment variables, `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY`, or `AWS_PROFILE` be set.
-* Run the script using **NodeJS** and the **AWS-SDK** for Javascript.
-
-```bash
-export AWS_PROFILE="swccg-production"
-node create_json.js
-
-```
 
 ## Deploying
 

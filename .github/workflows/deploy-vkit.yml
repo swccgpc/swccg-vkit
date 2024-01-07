@@ -22,7 +22,6 @@ jobs:
       - name: create allCards.json
         run: |
           npm install aws-sdk
-          node create_json.js
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
@@ -32,7 +31,7 @@ jobs:
       - name: sync to s3
         run: |+
           aws s3 sync . s3://vkit.starwarsccg.org/ --exclude '.git/*' --exclude '.github/*' --exclude 'node_modules/*' --exclude README.md --exclude package.json --exclude package-lock.json --exclude create_json.js --exclude s3_website.yml
-          aws cloudfront create-invalidation --distribution-id E28JJ75W3J9G61 --paths "/" "/allCards.json"
+          aws cloudfront create-invalidation --distribution-id E28JJ75W3J9G61 --paths "/*" "/Dark.json" "/Light.json" "/js/VkitMain.js" "/index.html"
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
