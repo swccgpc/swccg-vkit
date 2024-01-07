@@ -11,48 +11,37 @@
 
 </head>
 <body>
-    
-<!-- 
+
+<div id="navbar"></div>    
+<script type="text/javascript">
+    const pathname = window.location.pathname;
+    const url      = window.location.href;
+    const origin   = window.location.origin;
+    console.log("pathname:",pathname);
+    console.log("url:",url);
+    console.log("origin:",origin);
+    if ((url == "http://0.0.0.0:8000/") || (url == "https://vkit.starwarsccg.org/")) {
+    document.getElementById("navbar").innerHTML =`
 <div class="top-banner">
     <div class="top-banner-item">
-        <p>
-            <a class="btn button top-banner-button" href="https://www.starwarsccg.org/volunteer">
-                Volunteer
-            </a>
-        </p>
+        <p><a class="btn button top-banner-button" href="https://www.starwarsccg.org/volunteer">Volunteer</a></p>
     </div>
     
     <div class="btn button top-banner-item">
-        <p>
-            <a class="btn button top-banner-button" href="https://scomp.starwarsccg.org/">
-                Scomp Link
-            </a>
-        </p>
+        <p><a class="btn button top-banner-button" href="https://scomp.starwarsccg.org/">Scomp</a></p>
     </div>
     
     <div class="btn button top-banner-item">
-        <p>
-            <a class="btn button top-banner-button" href="https://forum.starwarsccg.org/">
-                Forums
-            </a>
-        </p>
+        <p><a class="btn button top-banner-button" href="https://forum.starwarsccg.org/">Forum</a></p>
     </div>
     
     <div class="btn button top-banner-item">
-        <p>
-            <a class="btn button top-banner-button" href="https://gemp.starwarsccg.org/">
-                Gemp
-            </a>
-        </p>
+        <p><a class="btn button top-banner-button" href="https://gemp.starwarsccg.org/">Gemp</a></p>
     </div>
     
     <div class="btn button top-banner-item">
-        <p>
-            <a class="btn button top-banner-button" href="https://vkit.starwarsccg.org/">
-                Vkit
-            </a>
-        </p>
-    </div>    
+        <p><a class="btn button top-banner-button" href="https://vkit.starwarsccg.org/">Vkit</a></p>
+    </div>
 </div>
   
 <div class="vkit-header">
@@ -61,16 +50,14 @@
          src="https://res.starwarsccg.org/wp/wp-content/uploads/2019/04/logo.jpg"
          href="https://www.starwarsccg.org/"> 
     </div>
-    <div class="vkit-header-title">
-        VKIT
-    </div>
+    <div class="vkit-header-title">VKIT</div>
 </div>
 
-    
-<div class="below-logo-divider">
-</div>
+<div class="below-logo-divider"></div>
 
--->
+`;
+  }
+</script>
 
 <div class='vkit-app'>
 

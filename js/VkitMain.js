@@ -199,6 +199,7 @@ function addSelectedCards(isWhiteBorder) {
   // Try to add the cards next to it's duplicates (if exist)
   jQuery("#selectAdds").find(":selected").each(function() {
       var cardGuidToAdd = jQuery(this).val();
+      console.log("Adding Card to PDF",cardGuidToAdd);
 
       // TODO: Fix Whiteborder implementation
       if (isWhiteBorder) {
@@ -432,6 +433,9 @@ function generatePdf() {
           progressElement.innerHTML = "Adding card: " + currentCardIndex + " of " + cardGuidsForPdf.length;
         }
 
+        // console.log("adding card to pdf:",getCardTitle(cardFromGuid(cardGuidsForPdf[currentCardIndex])));
+
+
         if (currentCardIndex == cardGuidsForPdf.length) {
 
           var halfSlips = [];
@@ -498,6 +502,14 @@ function generatePdf() {
                 // Print it a second time, but this time with the back
                 addNextCard(currentCardIndex, true);
               } else {
+                var cardTitle = getCardTitle(cardFromGuid(cardGuidsForPdf[currentCardIndex]));
+                console.log("Card Title:",cardTitle);
+                if (cardTitle.indexOf("/") > -1) {
+                  console.log("Found a slash (/) in the card name. It is an Objective. Print the back side...");
+                  addNextCard(currentCardIndex, true);
+                } else {
+                  console.log("Not an Objective. Not printing back side.");
+                }
                 addNextCard(currentCardIndex + 1);
               }
 
