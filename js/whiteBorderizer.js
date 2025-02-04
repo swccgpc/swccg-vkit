@@ -1,5 +1,7 @@
 var BLACK_THRESHOLD = 50;
 var DFLT_INSET = 5;
+var MAX_SIDE_BORDER_WIDTH = 37;
+var MAX_BOTTOM_BORDER_WIDTH = 37;
 
 var pixelData = null;
 var imageWidth = null;
@@ -33,12 +35,16 @@ function convertCanvasToWhiteBorder2(canvas) {
         if (!isBlack(ctx, x, y)) {
             // We hit an edge!
             bottomBorderHeight = imageHeight - y;
-            upperBottomBorder = y;
             break;
         }
     }
 
-    upperBottomBorder = upperBottomBorder + 1;
+    // Sanity-check: apply max of MAX_BOTTOM_BORDER_WIDTH pixel border
+    if (bottomBorderHeight < 10 || bottomBorderHeight > MAX_BOTTOM_BORDER_WIDTH) {
+        bottomBorderHeight = MAX_BOTTOM_BORDER_WIDTH;
+    }
+    upperBottomBorder = (imageHeight - bottomBorderHeight) + 1
+
 
     // Now...invert everything below that border!
     for (var x = 0; x < imageWidth + 1; x++) {
@@ -53,10 +59,14 @@ function convertCanvasToWhiteBorder2(canvas) {
         if (!isBlack(ctx, x, y)) {
             // We hit an edge!
             leftBorderWidth = x;
-            innerLeftBorder = x;
             break;
         }
     }
+    if (leftBorderWidth < 10 || leftBorderWidth > MAX_SIDE_BORDER_WIDTH) {
+        leftBorderWidth = MAX_SIDE_BORDER_WIDTH;
+    }
+    innerLeftBorder = leftBorderWidth;
+
     fillRectWhite(ctx, 0, 0, leftBorderWidth, imageHeight - bottomBorderHeight + 1);
 
     // Get the inner-right border
@@ -65,10 +75,13 @@ function convertCanvasToWhiteBorder2(canvas) {
         if (!isBlack(ctx, x, y)) {
             // We hit an edge!
             rightBorderWidth = imageWidth - x;
-            innerRightBorder = x;
             break;
         }
     }
+    if (rightBorderWidth < 10 || rightBorderWidth > MAX_SIDE_BORDER_WIDTH) {
+        rightBorderWidth = MAX_SIDE_BORDER_WIDTH;
+    }
+    innerRightBorder = imageWidth - rightBorderWidth;
     fillRectWhite(ctx, innerRightBorder, 0, rightBorderWidth, imageHeight - bottomBorderHeight + 1);
 
 
